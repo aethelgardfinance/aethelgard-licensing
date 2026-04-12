@@ -6,7 +6,7 @@
     "type": "module",
     "scripts": {
         "typecheck": "tsc --noEmit",
-        "test": "node --experimental-vm-modules node_modules/.bin/jest"
+        "test": "node --test lib/__tests__/keygen.test.mjs"
     },
     "devDependencies": {
         "@types/node": "^20.0.0",
