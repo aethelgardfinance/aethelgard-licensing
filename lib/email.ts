@@ -88,7 +88,7 @@ export async function sendLicenseEmail(params: SendLicenseEmailParams): Promise<
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            from: 'Aethelgard <license@aethelgard.com>',
+            from: 'Aethelgard <license@aethelgard.finance>',
             to,
             subject: `Your Aethelgard ${tierLabel} License Key`,
             html,
