@@ -1,0 +1,16 @@
+{
+    "name": "aethelgard-licensing",
+    "version": "1.0.0",
+    "private": true,
+    "description": "Paddle webhook receiver — generates and delivers Aethelgard license keys via Resend.",
+    "type": "module",
+    "scripts": {
+        "typecheck": "tsc --noEmit",
+        "test": "node --experimental-vm-modules node_modules/.bin/jest"
+    },
+    "devDependencies": {
+        "@types/node": "^20.0.0",
+        "@vercel/node": "^3.0.0",
+        "typescript": "^5.4.0"
+    }
+}

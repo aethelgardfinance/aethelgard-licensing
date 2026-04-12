@@ -1,0 +1,7 @@
+{
+    "functions": {
+        "api/paddle-webhook.ts": {
+            "maxDuration": 10
+        }
+    }
+}
