@@ -19,6 +19,8 @@
  *   PADDLE_PERSONAL_LIFETIME_PRICE_ID   — Paddle price ID for Basic lifetime
  *   PADDLE_SOVEREIGN_LIFETIME_PRICE_ID  — Paddle price ID for Standard lifetime
  *   PADDLE_CORPORATE_LIFETIME_PRICE_ID  — Paddle price ID for Advanced lifetime
+ *   PADDLE_API_KEY                      — Paddle sandbox API key (for customer lookup)
+ *   PADDLE_SANDBOX                      — set to "true" for sandbox environment
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -97,6 +99,41 @@ async function verifyPaddleSignature(
     return mismatch === 0;
 }
 
+// ── Paddle customer lookup ────────────────────────────────────────────────────
+
+async function fetchCustomerEmail(customerId: string | undefined): Promise<string | undefined> {
+    if (!customerId) return undefined;
+
+    const apiKey = process.env['PADDLE_API_KEY'];
+    if (!apiKey) {
+        console.error('PADDLE_API_KEY not configured — cannot look up customer email');
+        return undefined;
+    }
+
+    const isSandbox = process.env['PADDLE_SANDBOX'] === 'true';
+    const baseUrl = isSandbox
+        ? 'https://sandbox-api.paddle.com'
+        : 'https://api.paddle.com';
+
+    try {
+        const resp = await fetch(`${baseUrl}/customers/${customerId}`, {
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+        });
+        if (!resp.ok) {
+            console.error(`Paddle customer lookup failed: ${resp.status} ${resp.statusText}`);
+            return undefined;
+        }
+        const body = await resp.json() as { data?: { email?: string } };
+        return body.data?.email;
+    } catch (err) {
+        console.error('Paddle customer lookup error:', err);
+        return undefined;
+    }
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -143,8 +180,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const tx = event.data;
-    const customerEmail = tx.customer?.email;
-    const customerName  = tx.customer?.name ?? tx.customer?.email ?? 'Customer';
+
+    // Paddle Billing webhooks include customer_id but not the full customer object.
+    // Fetch the customer from the Paddle API to get their email.
+    const customerEmail = await fetchCustomerEmail(tx.customer_id);
+    const customerName  = customerEmail ?? 'Customer';
 
     if (!customerEmail) {
         console.error('No customer email in transaction', tx.id);
@@ -211,10 +251,7 @@ interface PaddleEvent {
 
 interface PaddleTransaction {
     id: string;
-    customer?: {
-        email?: string;
-        name?: string;
-    };
+    customer_id?: string;
     items?: Array<{
         price?: {
             id?: string;
