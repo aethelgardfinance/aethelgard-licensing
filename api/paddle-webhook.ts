@@ -180,6 +180,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const tx = event.data;
+    console.log('Transaction data keys:', Object.keys(tx).join(', '));
+    console.log('customer_id:', tx.customer_id);
 
     // Paddle Billing webhooks include customer_id but not the full customer object.
     // Fetch the customer from the Paddle API to get their email.
