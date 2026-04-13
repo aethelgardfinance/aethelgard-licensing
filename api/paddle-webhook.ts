@@ -101,12 +101,10 @@ async function verifyPaddleSignature(
 
 // ── Paddle customer lookup ────────────────────────────────────────────────────
 
-async function fetchCustomerEmail(customerId: string | undefined): Promise<string | undefined> {
-    if (!customerId) return undefined;
-
+async function fetchTransactionEmail(transactionId: string): Promise<string | undefined> {
     const apiKey = process.env['PADDLE_API_KEY'];
     if (!apiKey) {
-        console.error('PADDLE_API_KEY not configured — cannot look up customer email');
+        console.error('PADDLE_API_KEY not configured');
         return undefined;
     }
 
@@ -116,20 +114,19 @@ async function fetchCustomerEmail(customerId: string | undefined): Promise<strin
         : 'https://api.paddle.com';
 
     try {
-        const resp = await fetch(`${baseUrl}/customers/${customerId}`, {
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-                'Content-Type': 'application/json',
-            },
+        const resp = await fetch(`${baseUrl}/transactions/${transactionId}?include=customer`, {
+            headers: { Authorization: `Bearer ${apiKey}` },
         });
         if (!resp.ok) {
-            console.error(`Paddle customer lookup failed: ${resp.status} ${resp.statusText}`);
+            console.error(`Paddle transaction lookup failed: ${resp.status} ${resp.statusText}`);
             return undefined;
         }
-        const body = await resp.json() as { data?: { email?: string } };
-        return body.data?.email;
+        const body = await resp.json() as {
+            data?: { customer?: { email?: string } };
+        };
+        return body.data?.customer?.email;
     } catch (err) {
-        console.error('Paddle customer lookup error:', err);
+        console.error('Paddle transaction lookup error:', err);
         return undefined;
     }
 }
@@ -180,12 +177,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const tx = event.data;
-    console.log('Transaction data keys:', Object.keys(tx).join(', '));
-    console.log('customer_id:', tx.customer_id);
-
-    // Paddle Billing webhooks include customer_id but not the full customer object.
-    // Fetch the customer from the Paddle API to get their email.
-    const customerEmail = await fetchCustomerEmail(tx.customer_id);
+    // Paddle Billing webhooks don't embed customer email — fetch transaction
+    // with ?include=customer to get the email without needing customer:read scope.
+    const customerEmail = await fetchTransactionEmail(tx.id);
     const customerName  = customerEmail ?? 'Customer';
 
     if (!customerEmail) {
@@ -253,7 +247,6 @@ interface PaddleEvent {
 
 interface PaddleTransaction {
     id: string;
-    customer_id?: string;
     items?: Array<{
         price?: {
             id?: string;
