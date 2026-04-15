@@ -60,7 +60,7 @@ export async function sendLicenseEmail(params: SendLicenseEmailParams): Promise<
 
       <h2 style="color:#111827;font-size:15px;font-weight:600;margin:0 0 12px">How to activate</h2>
       <ol style="color:#374151;font-size:14px;line-height:1.8;margin:0 0 24px;padding-left:20px">
-        <li>Open Aethelgard on your Windows or Mac computer.</li>
+        <li>Open Aethelgard on your Windows computer.</li>
         <li>Go to <strong>Vault Settings</strong> (the gear icon).</li>
         <li>Scroll to the <strong>License</strong> section.</li>
         <li>Paste your key and click <strong>Activate</strong>.</li>
@@ -88,7 +88,7 @@ export async function sendLicenseEmail(params: SendLicenseEmailParams): Promise<
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            from: 'Aethelgard <license@aethelgard.finance>',
+            from: 'Aethelgard <contact@aethelgard.finance>',
             to,
             subject: `Your Aethelgard ${tierLabel} License Key`,
             html,
