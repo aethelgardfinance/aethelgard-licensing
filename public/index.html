@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aethelgard — Financial Modelling Software</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink: #1a1a2e;
+      --muted: #4a4a6a;
+      --accent: #2563eb;
+      --border: #e2e8f0;
+      --bg: #f8fafc;
+    }
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); line-height: 1.6; }
+    header { border-bottom: 1px solid var(--border); padding: 1.25rem 2rem; display: flex; align-items: center; gap: 0.75rem; }
+    header .logo { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; }
+    header .logo span { color: var(--accent); }
+    main { max-width: 720px; margin: 5rem auto; padding: 0 2rem; }
+    h1 { font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.2; margin-bottom: 1rem; }
+    .tagline { font-size: 1.125rem; color: var(--muted); margin-bottom: 3rem; max-width: 520px; }
+    .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 3rem; }
+    .tier { background: #fff; border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.25rem; }
+    .tier h3 { font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 0.25rem; }
+    .tier p { font-size: 0.9375rem; color: var(--ink); }
+    .legal { border-top: 1px solid var(--border); padding-top: 2rem; }
+    .legal h2 { font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 0.75rem; }
+    .legal ul { list-style: none; display: flex; flex-wrap: wrap; gap: 1.5rem; }
+    .legal a { color: var(--accent); text-decoration: none; font-size: 0.9375rem; }
+    .legal a:hover { text-decoration: underline; }
+    footer { text-align: center; padding: 3rem 2rem; color: var(--muted); font-size: 0.875rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="logo" href="/"><span>Æ</span> Aethelgard</a>
+  </header>
+
+  <main>
+    <h1>Professional financial modelling software</h1>
+    <p class="tagline">Aethelgard is desktop software for financial professionals. Built for multi-entity modelling, consolidation, and complex financial analysis.</p>
+
+    <div class="tiers">
+      <div class="tier">
+        <h3>Personal</h3>
+        <p>Individual use. Annual or lifetime licence.</p>
+      </div>
+      <div class="tier">
+        <h3>Sovereign</h3>
+        <p>Advanced users. Annual or lifetime licence.</p>
+      </div>
+      <div class="tier">
+        <h3>Corporate</h3>
+        <p>Team &amp; enterprise use. Annual or lifetime licence.</p>
+      </div>
+    </div>
+
+    <div class="legal">
+      <h2>Legal</h2>
+      <ul>
+        <li><a href="/terms.html">Terms of Service</a></li>
+        <li><a href="/privacy.html">Privacy Notice</a></li>
+        <li><a href="/refund.html">Refund Policy</a></li>
+      </ul>
+    </div>
+  </main>
+
+  <footer>
+    &copy; 2025 2B Connected Ltd (No. 06427186) &middot; Registered in England and Wales &middot; <a href="mailto:contact@aethelgard.finance" style="color:inherit">contact@aethelgard.finance</a>
+  </footer>
+</body>
+</html>
