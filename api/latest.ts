@@ -40,7 +40,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
             return res.status(404).json({ error: 'No Windows installer found in latest release' });
         }
 
-        res.setHeader('Access-Control-Allow-Origin', 'https://aethelgard.finance');
+        res.setHeader('Access-Control-Allow-Origin', '*');
         res.setHeader('Cache-Control', 's-maxage=300'); // cache for 5 minutes on Vercel edge
         return res.status(200).json({
             version,
