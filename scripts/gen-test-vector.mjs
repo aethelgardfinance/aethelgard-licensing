@@ -14,6 +14,7 @@
  */
 
 const DEV_SECRET = 'aethelgard-dev-only-secret-do-not-use-in-production-builds-2026';
+const SECRET     = process.env.AETHELGARD_LICENSE_SECRET ?? DEV_SECRET;
 const ALPHABET   = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 const LIFETIME   = 0xFFFF;
 
@@ -52,7 +53,7 @@ async function generate() {
     buf[5] = (customerId >>>  8) & 0xff;
     buf[6] =  customerId         & 0xff;
 
-    const hmac = await computeHmac(buf.buffer.slice(0, 7), DEV_SECRET);
+    const hmac = await computeHmac(buf.buffer.slice(0, 7), SECRET);
     buf.set(hmac.slice(0, 8), 7);
 
     const e = encodeBase32(buf);
