@@ -9,7 +9,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-const GITHUB_OWNER = 'CherieCAF';
+const GITHUB_OWNER = 'aethelgardfinance';
 const GITHUB_REPO  = 'aethelgard-releases';
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
