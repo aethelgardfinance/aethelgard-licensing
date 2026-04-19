@@ -52,5 +52,20 @@
     "expiry": "lifetime",
     "tech_savvy": false,
     "personal_note": "You've always been straight with me about what's production-ready and what isn't — that's exactly why I want your eye on this before it goes public."
+  },
+
+  // ── Design partner outreach (no key generated — initial contact only) ────────
+  // Update FOUNDING_SLOTS_REMAINING in send-prep.mjs before each batch.
+  {
+    "name": "Marcus Webb",
+    "email": "marcus@example.com",
+    "template": "DP_HNW",
+    "personal_note": "We haven't spoken since the STEP dinner in March — I've been heads-down building something I think you'd actually want."
+  },
+  {
+    "name": "Sandra Osei",
+    "email": "sandra@example.com",
+    "template": "DP_ADVISOR",
+    "personal_note": "I know your client base skews toward multi-jurisdiction structures — this was built with exactly that in mind."
   }
 ]

@@ -1,12 +1,16 @@
 /**
- * Beta tester email draft generator.
+ * Email draft generator — beta testers and design partner outreach.
  *
  * Usage (from aethelgard-licensing/):
  *   AETHELGARD_LICENSE_SECRET=<prod-secret> node scripts/send-prep.mjs
  *
- * Reads scripts/testers.json, generates a license key per tester, fills the
- * relevant email template, and writes one draft .txt file per tester to
- * scripts/drafts/. Review each draft and send manually.
+ * Reads scripts/testers.json, generates a license key per tester (beta only),
+ * fills the relevant email template, and writes one draft .txt file per person
+ * to scripts/drafts/. Review each draft and send manually.
+ *
+ * Templates:
+ *   Beta testers (key generated):  A, B1, B2, C, D, E
+ *   Design partner outreach (no key): DP_HNW, DP_ADVISOR
  *
  * testers.json is gitignored — see testers.json.example for the format.
  */
@@ -24,7 +28,7 @@ const SECRET      = process.env.AETHELGARD_LICENSE_SECRET ?? DEV_SECRET;
 const VERSION     = '1.4.8';
 const DOWNLOAD    = `https://github.com/aethelgardfinance/aethelgard-releases/releases/tag/v${VERSION}`;
 
-// Fill these in once Google Forms are created
+// Beta tester feedback forms — fill in once Google Forms are created
 const FORM = {
     A: '[FORM LINK A]',
     B: '[FORM LINK B]',
@@ -32,6 +36,12 @@ const FORM = {
     D: '[FORM LINK D]',
     E: '[FORM LINK E]',
 };
+
+// Design partner application form — fill in once created
+const DP_FORM = '[DESIGN PARTNER APPLICATION FORM LINK]';
+
+// Update before each outreach batch — shown in the email to create real urgency
+const FOUNDING_SLOTS_REMAINING = 20;
 
 // ── Key generation (mirrors lib/keygen.ts — keep in sync) ────────────────────
 
@@ -283,7 +293,52 @@ ${t.tech_savvy ? '' : SMARTSCREEN}${KEY_BLOCK(t.key, t.expiryStr)}**What you get
 Cherie`;
 }
 
-const TEMPLATES = { A: emailA, B1: emailB1, B2: emailB2, C: emailC, D: emailD, E: emailE };
+// ── Design partner outreach templates (no key — initial contact only) ─────────
+
+function emailDpHnw(t) {
+    const open = t.personal_note
+        ? `Hi ${t.name},\n\n${t.personal_note}`
+        : `Hi ${t.name},`;
+
+    return `Subject: Aethelgard — private wealth ledger, founding member access
+
+${open}
+
+I'm building Aethelgard (*ay-thel-gard*) — a local-first private wealth ledger for people managing companies, property, investments, and other complex assets across multiple entities. It keeps everything on your device with no cloud and no telemetry.
+
+I'm looking for a small number of founding design partners who want a more serious alternative to spreadsheets and cloud accounting — people whose financial lives are genuinely complex and who'd be willing to give direct feedback in exchange for a permanent founding member rate.
+
+I have ${FOUNDING_SLOTS_REMAINING} founding member slots remaining at £299/year (full price at launch is £399). Would you be open to a brief conversation about your current setup and whether this might be useful?
+
+If you'd like to apply: ${DP_FORM}
+
+Cherie`;
+}
+
+function emailDpAdvisor(t) {
+    const open = t.personal_note
+        ? `Hi ${t.name},\n\n${t.personal_note}`
+        : `Hi ${t.name},`;
+
+    return `Subject: Aethelgard — private wealth ledger for complex client structures
+
+${open}
+
+I'm launching Aethelgard (*ay-thel-gard*) — a private wealth ledger designed to help clients keep a clear, secure record of their full asset picture across entities, jurisdictions, and asset classes. Everything runs locally on the client's machine: no cloud, no telemetry, no third-party data access.
+
+It may be useful for clients who have outgrown spreadsheets or need a better way to centralise complex holdings — particularly for succession planning, multi-entity structures, or IAS 21 / FRS 102 reporting. I'd value your perspective on whether it fills a gap in your client workflows.
+
+I have ${FOUNDING_SLOTS_REMAINING} founding member slots at £299/year (full price at launch: £399). For advisors managing multiple clients, I also have a three-licence bundle at £699/year.
+
+If you'd like to apply or find out more: ${DP_FORM}
+
+Cherie`;
+}
+
+const TEMPLATES = {
+    A: emailA, B1: emailB1, B2: emailB2, C: emailC, D: emailD, E: emailE,
+    DP_HNW: emailDpHnw, DP_ADVISOR: emailDpAdvisor,
+};
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
@@ -305,40 +360,40 @@ async function main() {
     const summary = [];
 
     for (const t of testers) {
-        const { key, expiryDate, customerId } = await makeKey(t.tier ?? 'corporate', t.expiry ?? 'lifetime');
-        const expiryStr = expiryDate
-            ? `expires ${expiryDate.toISOString().slice(0, 10)}`
-            : 'Lifetime — never expires';
-
-        const tester = { ...t, key, expiryStr };
-
         const templateFn = TEMPLATES[t.template];
         if (!templateFn) {
             console.warn(`Unknown template "${t.template}" for ${t.name} — skipping.`);
             continue;
         }
 
+        const isDesignPartner = t.template.startsWith('DP_');
+        let tester = { ...t };
+
+        if (!isDesignPartner) {
+            const { key, expiryDate } = await makeKey(t.tier ?? 'corporate', t.expiry ?? 'lifetime');
+            const expiryStr = expiryDate
+                ? `expires ${expiryDate.toISOString().slice(0, 10)}`
+                : 'Lifetime — never expires';
+            tester = { ...tester, key, expiryStr };
+        }
+
         const draft    = templateFn(tester);
         const filename = `${t.template}_${t.name.toLowerCase().replace(/\s+/g, '_')}.txt`;
         writeFileSync(join(draftsDir, filename), draft, 'utf8');
 
-        summary.push({ name: t.name, email: t.email, template: t.template, key, expiryStr,
-                       techSavvy: t.tech_savvy ?? false, file: filename });
-
+        summary.push({ ...tester, isDesignPartner, file: filename });
         console.log(`✓ ${t.name} (${t.email}) — ${filename}`);
     }
 
     // Summary table
     console.log('\n── Summary ──────────────────────────────────────────────────────────────────');
-    console.log('Name'.padEnd(20), 'Template'.padEnd(10), 'SmartScreen'.padEnd(13), 'Key');
+    console.log('Name'.padEnd(22), 'Template'.padEnd(12), 'Detail');
     console.log('─'.repeat(80));
     for (const s of summary) {
-        console.log(
-            s.name.padEnd(20),
-            s.template.padEnd(10),
-            (s.techSavvy ? 'OMITTED' : 'INCLUDED').padEnd(13),
-            s.key,
-        );
+        const detail = s.isDesignPartner
+            ? `Outreach only — no key (${FOUNDING_SLOTS_REMAINING} slots remaining)`
+            : `${s.key}  ${s.tech_savvy ? '[SmartScreen omitted]' : ''}`;
+        console.log(s.name.padEnd(22), s.template.padEnd(12), detail);
     }
     console.log(`\nDraft emails written to: scripts/drafts/`);
     console.log('Review each file, personalise any [BRACKETED] fields, then send manually.');
