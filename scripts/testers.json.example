@@ -1,0 +1,56 @@
+[
+  {
+    "name": "Jane Smith",
+    "email": "jane@example.com",
+    "template": "A",
+    "tier": "corporate",
+    "expiry": "lifetime",
+    "tech_savvy": false,
+    "personal_note": ""
+  },
+  {
+    "name": "Pieter de Vries",
+    "email": "pieter@example.com",
+    "template": "B1",
+    "tier": "corporate",
+    "expiry": "lifetime",
+    "tech_savvy": false,
+    "personal_note": "We connected at the Amsterdam fintech meetup last year — I remember you mentioned the hassle of quarterly BTW submissions."
+  },
+  {
+    "name": "Carlos Ruiz",
+    "email": "carlos@example.com",
+    "template": "B2",
+    "tier": "corporate",
+    "expiry": "lifetime",
+    "tech_savvy": false,
+    "personal_note": ""
+  },
+  {
+    "name": "Alex Chen",
+    "email": "alex@example.com",
+    "template": "C",
+    "tier": "corporate",
+    "expiry": "lifetime",
+    "tech_savvy": true,
+    "personal_note": "I've been following your self-hosting posts on Mastodon for a while — your writeup on Vaultwarden key management was exactly the kind of thinking I need applied to this."
+  },
+  {
+    "name": "Robert Hamilton",
+    "email": "robert@example.com",
+    "template": "D",
+    "tier": "corporate",
+    "expiry": "lifetime",
+    "tech_savvy": false,
+    "personal_note": "It was good to catch up at the STEP conference. You mentioned you're still managing the Hamilton entities across three spreadsheets — I'd love your honest take on whether this solves that."
+  },
+  {
+    "name": "Helen Brooks",
+    "email": "helen@example.com",
+    "template": "E",
+    "tier": "corporate",
+    "expiry": "lifetime",
+    "tech_savvy": false,
+    "personal_note": "You've always been straight with me about what's production-ready and what isn't — that's exactly why I want your eye on this before it goes public."
+  }
+]

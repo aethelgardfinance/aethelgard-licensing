@@ -5,3 +5,9 @@ dist/
 .env.production
 .env.*
 .vercel/
+
+.vercel
+
+# Beta tester personal data and generated email drafts — never commit
+scripts/testers.json
+scripts/drafts/
