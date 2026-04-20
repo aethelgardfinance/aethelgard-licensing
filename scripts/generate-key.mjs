@@ -108,14 +108,9 @@ async function generate() {
     const e   = encodeBase32(buf);
     const key = `AETHG-${e.slice(0,6)}-${e.slice(6,12)}-${e.slice(12,18)}-${e.slice(18,24)}`;
 
-    console.log('\nLicense key generated:');
-    console.log('─────────────────────────────────────');
-    console.log(key);
-    console.log('─────────────────────────────────────');
-    console.log(`Tier:        ${tier}`);
-    console.log(`Expiry:      ${expiryDate ? expiryDate.toISOString().slice(0, 10) : 'Lifetime (never expires)'}`);
-    console.log(`Customer ID: ${customerId}`);
-    console.log('');
+    console.log(`\nTier:   ${tier}`);
+    console.log(`Expiry: ${expiryDate ? expiryDate.toISOString().slice(0, 10) : 'Lifetime (never expires)'}`);
+    console.log(`\nKey (copy this line only):\n${key}\n`);
 }
 
 generate();
