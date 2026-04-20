@@ -25,7 +25,7 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 
 const DEV_SECRET  = 'aethelgard-dev-only-secret-do-not-use-in-production-builds-2026';
 const SECRET      = process.env.AETHELGARD_LICENSE_SECRET ?? DEV_SECRET;
-const VERSION     = '1.4.8';
+const VERSION     = '1.6.2';
 const DOWNLOAD    = `https://github.com/aethelgardfinance/aethelgard-releases/releases/tag/v${VERSION}`;
 
 // Beta tester feedback forms — fill in once Google Forms are created
