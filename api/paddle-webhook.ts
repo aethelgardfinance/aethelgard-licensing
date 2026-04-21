@@ -19,6 +19,7 @@
  *   PADDLE_BASIC_LIFETIME_PRICE_ID   — Paddle price ID for Basic lifetime
  *   PADDLE_STANDARD_LIFETIME_PRICE_ID — Paddle price ID for Standard lifetime
  *   PADDLE_ADVANCED_LIFETIME_PRICE_ID — Paddle price ID for Advanced lifetime
+ *   PADDLE_ADVISOR_BUNDLE_PRICE_ID    — Paddle price ID for Advisor Bundle (3 × Advanced Lifetime)
  *   PADDLE_API_KEY                      — Paddle sandbox API key (for customer lookup)
  *   PADDLE_SANDBOX                      — set to "true" for sandbox environment
  */
@@ -26,7 +27,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { generateKey, randomCustomerId, annualExpiry, lifetimeExpiry } from '../lib/keygen.js';
 import type { Tier } from '../lib/keygen.js';
-import { sendLicenseEmail } from '../lib/email.js';
+import { sendLicenseEmail, sendAdvisorBundleEmail } from '../lib/email.js';
 
 // ── Tier mapping ──────────────────────────────────────────────────────────────
 
@@ -187,50 +188,67 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ received: true, error: 'No customer email' });
     }
 
-    // ── 3. Resolve tier from price ID ─────────────────────────────────────────
-    const priceMap = buildPriceMap();
-    const priceId  = tx.items?.[0]?.price?.id;
-    const mapping  = priceId ? priceMap.get(priceId) : undefined;
+    // ── 3. Resolve price ID ───────────────────────────────────────────────────
+    const priceId        = tx.items?.[0]?.price?.id;
+    const bundlePriceId  = process.env['PADDLE_ADVISOR_BUNDLE_PRICE_ID'];
+    const isAdvisorBundle = priceId && bundlePriceId && priceId === bundlePriceId;
 
-    if (!mapping) {
-        console.warn(`Unknown price ID: ${priceId} — cannot generate license key`);
-        // Return 200 so Paddle doesn't retry; but log for manual follow-up.
-        return res.status(200).json({ received: true, error: `Unknown price ID: ${priceId}` });
-    }
-
-    const { tier, isLifetime } = mapping;
-
-    // ── 4. Generate license key ───────────────────────────────────────────────
     const masterSecret = process.env['AETHELGARD_LICENSE_SECRET'];
     if (!masterSecret) {
         console.error('AETHELGARD_LICENSE_SECRET not configured');
         return res.status(500).json({ error: 'Server misconfiguration' });
     }
 
-    const customerId = randomCustomerId();
+    // ── 4a. Advisor bundle — generate 3 × Advanced Lifetime keys ─────────────
+    if (isAdvisorBundle) {
+        let keys: [string, string, string];
+        try {
+            keys = [
+                await generateKey('advanced', randomCustomerId(), lifetimeExpiry, masterSecret),
+                await generateKey('advanced', randomCustomerId(), lifetimeExpiry, masterSecret),
+                await generateKey('advanced', randomCustomerId(), lifetimeExpiry, masterSecret),
+            ];
+        } catch (err) {
+            console.error('Bundle key generation failed:', err);
+            return res.status(500).json({ error: 'Key generation failed' });
+        }
+
+        try {
+            await sendAdvisorBundleEmail({ to: customerEmail, customerName, licenseKeys: keys });
+        } catch (err) {
+            console.error('Bundle email delivery failed:', err);
+            return res.status(500).json({ error: 'Email delivery failed' });
+        }
+
+        console.log(`Advisor bundle delivered to ${customerEmail} (tx: ${tx.id})`);
+        return res.status(200).json({ success: true });
+    }
+
+    // ── 4b. Single license — resolve tier from price map ─────────────────────
+    const priceMap = buildPriceMap();
+    const mapping  = priceId ? priceMap.get(priceId) : undefined;
+
+    if (!mapping) {
+        console.warn(`Unknown price ID: ${priceId} — cannot generate license key`);
+        return res.status(200).json({ received: true, error: `Unknown price ID: ${priceId}` });
+    }
+
+    const { tier, isLifetime } = mapping;
     const expiryDate = isLifetime ? lifetimeExpiry : annualExpiry();
 
     let licenseKey: string;
     try {
-        licenseKey = await generateKey(tier, customerId, expiryDate, masterSecret);
+        licenseKey = await generateKey(tier, randomCustomerId(), expiryDate, masterSecret);
     } catch (err) {
         console.error('Key generation failed:', err);
         return res.status(500).json({ error: 'Key generation failed' });
     }
 
-    // ── 5. Send email ─────────────────────────────────────────────────────────
+    // ── 5. Send single-key email ──────────────────────────────────────────────
     try {
-        await sendLicenseEmail({
-            to: customerEmail,
-            customerName,
-            tier,
-            licenseKey,
-            isLifetime,
-            expiryDate,
-        });
+        await sendLicenseEmail({ to: customerEmail, customerName, tier, licenseKey, isLifetime, expiryDate });
     } catch (err) {
         console.error('Email delivery failed:', err);
-        // Still return 500 so Paddle retries the webhook (email not sent yet).
         return res.status(500).json({ error: 'Email delivery failed' });
     }
 
