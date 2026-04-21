@@ -13,12 +13,12 @@
  *   PADDLE_WEBHOOK_SECRET         — from Paddle dashboard > Notifications
  *   AETHELGARD_LICENSE_SECRET     — must match the value baked into app binary
  *   RESEND_API_KEY                — from resend.com dashboard
- *   PADDLE_PERSONAL_PRICE_ID      — Paddle price ID for Basic/Personal tier
- *   PADDLE_SOVEREIGN_PRICE_ID     — Paddle price ID for Standard/Sovereign tier
- *   PADDLE_CORPORATE_PRICE_ID     — Paddle price ID for Advanced/Corporate tier
- *   PADDLE_PERSONAL_LIFETIME_PRICE_ID   — Paddle price ID for Basic lifetime
- *   PADDLE_SOVEREIGN_LIFETIME_PRICE_ID  — Paddle price ID for Standard lifetime
- *   PADDLE_CORPORATE_LIFETIME_PRICE_ID  — Paddle price ID for Advanced lifetime
+ *   PADDLE_BASIC_PRICE_ID            — Paddle price ID for Basic annual
+ *   PADDLE_STANDARD_PRICE_ID         — Paddle price ID for Standard annual
+ *   PADDLE_ADVANCED_PRICE_ID         — Paddle price ID for Advanced annual
+ *   PADDLE_BASIC_LIFETIME_PRICE_ID   — Paddle price ID for Basic lifetime
+ *   PADDLE_STANDARD_LIFETIME_PRICE_ID — Paddle price ID for Standard lifetime
+ *   PADDLE_ADVANCED_LIFETIME_PRICE_ID — Paddle price ID for Advanced lifetime
  *   PADDLE_API_KEY                      — Paddle sandbox API key (for customer lookup)
  *   PADDLE_SANDBOX                      — set to "true" for sandbox environment
  */
@@ -34,12 +34,12 @@ function buildPriceMap(): Map<string, { tier: Tier; isLifetime: boolean }> {
     const map = new Map<string, { tier: Tier; isLifetime: boolean }>();
 
     const entries: Array<[string, Tier, boolean]> = [
-        ['PADDLE_PERSONAL_PRICE_ID',          'personal',  false],
-        ['PADDLE_SOVEREIGN_PRICE_ID',         'sovereign', false],
-        ['PADDLE_CORPORATE_PRICE_ID',         'corporate', false],
-        ['PADDLE_PERSONAL_LIFETIME_PRICE_ID', 'personal',  true],
-        ['PADDLE_SOVEREIGN_LIFETIME_PRICE_ID','sovereign', true],
-        ['PADDLE_CORPORATE_LIFETIME_PRICE_ID','corporate', true],
+        ['PADDLE_BASIC_PRICE_ID',            'basic',    false],
+        ['PADDLE_STANDARD_PRICE_ID',         'standard', false],
+        ['PADDLE_ADVANCED_PRICE_ID',         'advanced', false],
+        ['PADDLE_BASIC_LIFETIME_PRICE_ID',   'basic',    true],
+        ['PADDLE_STANDARD_LIFETIME_PRICE_ID','standard', true],
+        ['PADDLE_ADVANCED_LIFETIME_PRICE_ID','advanced', true],
     ];
 
     for (const [envKey, tier, isLifetime] of entries) {

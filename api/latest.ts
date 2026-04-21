@@ -14,14 +14,16 @@ const GITHUB_REPO  = 'aethelgard-releases';
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
     try {
+        const headers: Record<string, string> = {
+            Accept: 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+        };
+        const ghToken = process.env['GITHUB_TOKEN'];
+        if (ghToken) headers['Authorization'] = `Bearer ${ghToken}`;
+
         const resp = await fetch(
             `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
-            {
-                headers: {
-                    Accept: 'application/vnd.github+json',
-                    'X-GitHub-Api-Version': '2022-11-28',
-                },
-            }
+            { headers }
         );
 
         if (!resp.ok) {

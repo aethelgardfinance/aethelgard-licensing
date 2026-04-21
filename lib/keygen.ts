@@ -12,15 +12,15 @@
  *   [3-6]  customer_id u32 BE
  *   [7-14] first 8 bytes of HMAC-SHA256(bytes[0..7], masterSecret)
  *
- * Tier values: 0=personal, 1=sovereign, 2=corporate
+ * Tier values: 0=basic, 1=standard, 2=advanced
  */
 
-export type Tier = 'personal' | 'sovereign' | 'corporate';
+export type Tier = 'basic' | 'standard' | 'advanced';
 
 const TIER_BYTE: Record<Tier, number> = {
-    personal:  0,
-    sovereign: 1,
-    corporate: 2,
+    basic:    0,
+    standard: 1,
+    advanced: 2,
 };
 
 /** Crockford Base32 alphabet — no ambiguous 0/O/I/L. */
