@@ -31,6 +31,26 @@ const EPOCH = new Date(Date.UTC(2026, 0, 1)); // 2026-01-01 UTC
 
 export const LIFETIME: number = 0xFFFF;
 
+// ── Key hashing (for revocation registry) ────────────────────────────────────
+
+/**
+ * Normalise a raw key string to its 24-character Crockford Base32 body.
+ * Strips prefix, dashes, whitespace; uppercases. Mirrors Rust's normalise logic.
+ */
+export function normalizeKey(raw: string): string {
+    return raw.replace(/[^0-9A-Za-z]/g, '').toUpperCase().replace(/^AETHG/, '');
+}
+
+/**
+ * SHA-256 digest of the normalised key body, returned as a lowercase hex string.
+ * Used as the storage key in the revocation registry — never store the raw key.
+ */
+export async function hashKey(raw: string): Promise<string> {
+    const data = new TextEncoder().encode(normalizeKey(raw));
+    const buf  = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**

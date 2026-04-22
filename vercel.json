@@ -1,7 +1,6 @@
 {
     "functions": {
-        "api/paddle-webhook.ts": {
-            "maxDuration": 10
-        }
+        "api/paddle-webhook.ts": { "maxDuration": 10 },
+        "api/verify.ts":         { "maxDuration": 5  }
     }
 }

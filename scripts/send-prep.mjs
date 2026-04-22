@@ -38,7 +38,7 @@ const FORM = {
 };
 
 // Design partner application form — fill in once created
-const DP_FORM = '[DESIGN PARTNER APPLICATION FORM LINK]';
+const DP_FORM = 'https://docs.google.com/spreadsheets/d/13intVFWY_Y_IGVgKRKIu44-zM7EIlaK-KvExy0oxX-Y/edit?usp=sharing';
 
 // Update before each outreach batch — shown in the email to create real urgency
 const FOUNDING_SLOTS_REMAINING = 20;
