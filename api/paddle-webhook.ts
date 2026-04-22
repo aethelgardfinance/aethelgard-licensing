@@ -35,12 +35,20 @@ function buildPriceMap(): Map<string, { tier: Tier; isLifetime: boolean }> {
     const map = new Map<string, { tier: Tier; isLifetime: boolean }>();
 
     const entries: Array<[string, Tier, boolean]> = [
-        ['PADDLE_BASIC_PRICE_ID',            'basic',    false],
-        ['PADDLE_STANDARD_PRICE_ID',         'standard', false],
-        ['PADDLE_ADVANCED_PRICE_ID',         'advanced', false],
-        ['PADDLE_BASIC_LIFETIME_PRICE_ID',   'basic',    true],
-        ['PADDLE_STANDARD_LIFETIME_PRICE_ID','standard', true],
-        ['PADDLE_ADVANCED_LIFETIME_PRICE_ID','advanced', true],
+        // Current names
+        ['PADDLE_BASIC_PRICE_ID',             'basic',    false],
+        ['PADDLE_STANDARD_PRICE_ID',          'standard', false],
+        ['PADDLE_ADVANCED_PRICE_ID',          'advanced', false],
+        ['PADDLE_BASIC_LIFETIME_PRICE_ID',    'basic',    true],
+        ['PADDLE_STANDARD_LIFETIME_PRICE_ID', 'standard', true],
+        ['PADDLE_ADVANCED_LIFETIME_PRICE_ID', 'advanced', true],
+        // Legacy names (Vercel env vars set before the rename — both accepted)
+        ['PADDLE_PERSONAL_PRICE_ID',          'basic',    false],
+        ['PADDLE_SOVEREIGN_PRICE_ID',         'standard', false],
+        ['PADDLE_CORPORATE_PRICE_ID',         'advanced', false],
+        ['PADDLE_PERSONAL_LIFETIME_PRICE_ID', 'basic',    true],
+        ['PADDLE_SOVEREIGN_LIFETIME_PRICE_ID','standard', true],
+        ['PADDLE_CORPORATE_LIFETIME_PRICE_ID','advanced', true],
     ];
 
     for (const [envKey, tier, isLifetime] of entries) {
