@@ -43,7 +43,9 @@ export function normalizeKey(raw: string): string {
 
 /**
  * SHA-256 digest of the normalised key body, returned as a lowercase hex string.
- * Used as the storage key in the revocation registry — never store the raw key.
+ * Used as the KV lookup key in the revocation registry. The raw key string is
+ * stored separately in KeyRecord (for idempotent re-delivery) and emailed to
+ * the customer — the hash is the index, not a replacement for the key itself.
  */
 export async function hashKey(raw: string): Promise<string> {
     const data = new TextEncoder().encode(normalizeKey(raw));

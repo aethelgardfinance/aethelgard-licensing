@@ -33,7 +33,7 @@ import { sendLicenseEmail, sendAdvisorBundleEmail } from '../lib/email.js';
 export interface KeyRecord {
     key:            string;
     transaction_id: string;
-    tier:           string;
+    tier:           Tier;
     is_lifetime:    boolean;
     issued_at:      string;
     customer_email: string;
@@ -59,11 +59,10 @@ interface PaddleAdjustment {
     status: 'approved' | 'pending_approval' | 'rejected';
 }
 
-// ── Tier mapping ──────────────────────────────────────────────────────────────
+// ── Tier mapping (built once at module load — env vars are static) ────────────
 
-function buildPriceMap(): Map<string, { tier: Tier; isLifetime: boolean }> {
+const PRICE_MAP: Map<string, { tier: Tier; isLifetime: boolean }> = (() => {
     const map = new Map<string, { tier: Tier; isLifetime: boolean }>();
-
     const entries: Array<[string, Tier, boolean]> = [
         // Current names
         ['PADDLE_BASIC_PRICE_ID',             'basic',    false],
@@ -80,14 +79,12 @@ function buildPriceMap(): Map<string, { tier: Tier; isLifetime: boolean }> {
         ['PADDLE_SOVEREIGN_LIFETIME_PRICE_ID','standard', true],
         ['PADDLE_CORPORATE_LIFETIME_PRICE_ID','advanced', true],
     ];
-
     for (const [envKey, tier, isLifetime] of entries) {
         const id = process.env[envKey];
         if (id) map.set(id, { tier, isLifetime });
     }
-
     return map;
-}
+})();
 
 // ── Paddle signature verification ─────────────────────────────────────────────
 
@@ -170,15 +167,13 @@ async function revokeByTransaction(txId: string): Promise<number> {
     if (!stored) return 0;
 
     const hashes = Array.isArray(stored) ? stored : [stored];
-    let count = 0;
-    for (const h of hashes) {
-        const record = await kv.get<KeyRecord>(`key:${h}`);
-        if (record) {
-            await kv.set(`key:${h}`, { ...record, revoked: true });
-            count++;
-        }
-    }
-    return count;
+    const records = await Promise.all(hashes.map(h => kv.get<KeyRecord>(`key:${h}`)));
+    await Promise.all(
+        records.map((record, i) =>
+            record ? kv.set(`key:${hashes[i]}`, { ...record, revoked: true }) : Promise.resolve()
+        )
+    );
+    return records.filter(Boolean).length;
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -343,8 +338,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ── 8b. Single license ────────────────────────────────────────────────────
-    const priceMap = buildPriceMap();
-    const mapping  = priceId ? priceMap.get(priceId) : undefined;
+    const mapping = priceId ? PRICE_MAP.get(priceId) : undefined;
 
     if (!mapping) {
         console.warn(`Unknown price ID: ${priceId} — cannot generate license key`);
