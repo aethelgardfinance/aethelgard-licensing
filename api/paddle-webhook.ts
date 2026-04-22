@@ -23,7 +23,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { kv } from '@vercel/kv';
+import { kv } from '../lib/redis.js';
 import { generateKey, randomCustomerId, annualExpiry, lifetimeExpiry, hashKey } from '../lib/keygen.js';
 import type { Tier } from '../lib/keygen.js';
 import { sendLicenseEmail, sendAdvisorBundleEmail } from '../lib/email.js';

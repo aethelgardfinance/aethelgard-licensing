@@ -8,12 +8,12 @@
         "typecheck": "tsc --noEmit",
         "test": "node --test lib/__tests__/keygen.test.mjs"
     },
-    "dependencies": {
-        "@vercel/kv": "^3.0.0"
-    },
     "devDependencies": {
         "@types/node": "^20.0.0",
         "@vercel/node": "^3.0.0",
         "typescript": "^5.4.0"
+    },
+    "dependencies": {
+        "@upstash/redis": "^1.37.0"
     }
 }

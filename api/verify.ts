@@ -13,7 +13,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { kv } from '@vercel/kv';
+import { kv } from '../lib/redis.js';
 import { hashKey } from '../lib/keygen.js';
 import type { KeyRecord } from './paddle-webhook.js';
 
