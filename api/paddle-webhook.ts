@@ -186,10 +186,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const tx = event.data;
-    // Paddle Billing webhooks don't embed customer email — fetch transaction
-    // with ?include=customer to get the email without needing customer:read scope.
-    const customerEmail = await fetchTransactionEmail(tx.id);
-    const customerName  = customerEmail ?? 'Customer';
+    // Try payload fields first (no API call needed), fall back to API lookup.
+    const customerEmail = tx.customer?.email
+        ?? tx.billing_details?.email
+        ?? await fetchTransactionEmail(tx.id);
+    const customerName = tx.customer?.name ?? 'Customer';
 
     if (!customerEmail) {
         console.error('No customer email in transaction', tx.id);
@@ -273,6 +274,13 @@ interface PaddleEvent {
 
 interface PaddleTransaction {
     id: string;
+    customer?: {
+        email?: string;
+        name?: string;
+    };
+    billing_details?: {
+        email?: string;
+    };
     items?: Array<{
         price?: {
             id?: string;
