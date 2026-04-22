@@ -52,6 +52,13 @@ interface PaddleTransaction {
     items?: Array<{ price?: { id?: string } }>;
 }
 
+interface PaddleAdjustment {
+    id: string;
+    action: 'refund' | 'chargeback' | 'chargeback_warning' | 'credit';
+    transaction_id: string;
+    status: 'approved' | 'pending_approval' | 'rejected';
+}
+
 // ── Tier mapping ──────────────────────────────────────────────────────────────
 
 function buildPriceMap(): Map<string, { tier: Tier; isLifetime: boolean }> {
@@ -215,13 +222,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const tx = event.data;
 
-    // ── 3. Handle refund — revoke key(s) in KV ────────────────────────────────
-    if (event.event_type === 'transaction.refunded') {
-        try {
-            const count = await revokeByTransaction(tx.id);
-            console.log(`Revoked ${count} key(s) for transaction ${tx.id}`);
-        } catch (err) {
-            console.error('KV revocation error:', err);
+    // ── 3. Handle refund adjustment — revoke key(s) in KV ────────────────────
+    // Paddle Billing represents refunds as Adjustments (event: adjustment.created).
+    // We only act on action=refund with status=approved.
+    if (event.event_type === 'adjustment.created' || event.event_type === 'adjustment.updated') {
+        const adj = event.data as unknown as PaddleAdjustment;
+        if (adj.action === 'refund' && adj.status === 'approved' && adj.transaction_id) {
+            try {
+                const count = await revokeByTransaction(adj.transaction_id);
+                console.log(`Revoked ${count} key(s) for transaction ${adj.transaction_id} (adjustment ${adj.id})`);
+            } catch (err) {
+                console.error('KV revocation error:', err);
+            }
         }
         return res.status(200).json({ received: true });
     }
