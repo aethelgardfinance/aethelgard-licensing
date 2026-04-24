@@ -127,12 +127,85 @@ The script **never mutates KV without `--confirm`**. You can always dry-run.
 
 ---
 
+## `simulate-webhook.mjs` — fake a Paddle event for pre-launch testing
+
+Signs and POSTs a fake Paddle webhook event to your deployed webhook
+endpoint. Used to smoke-test the full webhook → key generation → email →
+KV flow without triggering real Paddle transactions. Pairs with
+[`e2e-runbook.md`](e2e-runbook.md).
+
+### Usage
+
+Always starts in dry-run mode. Add `--send` to actually POST.
+
+```bash
+set -a; . ./.env.production; set +a    # or .env.sandbox
+
+# Purchase event — generates a key, sends a real email, writes KV
+node scripts/simulate-webhook.mjs purchase advanced --lifetime
+
+# With an explicit email + target (sandbox deployment):
+node scripts/simulate-webhook.mjs purchase standard \
+    --email=you@example.com \
+    --url=https://aethelgard-licensing-git-sandbox-<team>.vercel.app/api/paddle-webhook \
+    --send
+
+# Advisor bundle (3 keys)
+node scripts/simulate-webhook.mjs bundle --send
+
+# Refund adjustment — flips revoked:true on the key(s) from a prior tx
+node scripts/simulate-webhook.mjs refund txn_sim_abc123 --send
+```
+
+### What it does and doesn't prove
+
+✓ Proves the webhook endpoint accepts valid signatures, generates keys,
+  writes KV, and delivers emails.
+
+✓ Proves your current webhook secret in `.env.production` matches what
+  the deployed function expects.
+
+✗ Does **not** prove Paddle's own signature format is unchanged — for
+  that, do at least one real sandbox purchase per release (see
+  `e2e-runbook.md` step 1).
+
+### Safety
+
+- Always starts dry-run. `--send` is required to actually hit the
+  endpoint.
+- Prints a clear warning when the target is the production host.
+- Defaults `--email` to `test+aethelgard@2bc.com` (the `+` subaddress
+  routes to Cherie's inbox without colliding with real customer records).
+  Override with `TEST_EMAIL` env var or `--email=` flag.
+
+### Flags
+
+| Flag | Meaning |
+|---|---|
+| `--email=<addr>` | Customer email in the payload. Default: `TEST_EMAIL` env or `test+aethelgard@2bc.com` |
+| `--url=<webhook>` | Target webhook URL. Default: `WEBHOOK_URL` env or production |
+| `--lifetime` | For `purchase`: use the `*_LIFETIME_PRICE_ID` instead of the annual |
+| `--send` | Required to actually POST. Otherwise prints body + signature and exits |
+
+### Edge cases
+
+- **Tier price ID not set in env** → exits with a clear error naming
+  both the current and legacy env var names it tried.
+- **No `PADDLE_WEBHOOK_SECRET`** → exits before building any payload.
+- **Refund against a nonexistent transaction ID** → the real webhook
+  silently ignores (it has no key record to revoke). The simulator
+  still returns 200 from the endpoint.
+
+---
+
 ## Future admin scripts (not yet written)
 
 - `revoke.mjs` — manually flip `revoked: true` on a key (for leaked keys
   where no Paddle refund exists).
 - `lookup-key.mjs` — search KV by email or transaction ID when a customer
   has lost their key. Read-only.
+- `lookup-reseal.mjs` — dump the reseal log for a vault, given an email
+  or entity ID. Useful for auditor-style questions about chain history.
 - `reseal-assist.mjs` — if the reseal operation ever needs operator help
   (currently in-app only — this may not be needed at all).
 
