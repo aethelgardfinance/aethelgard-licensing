@@ -30,11 +30,11 @@ const DOWNLOAD    = `https://github.com/aethelgardfinance/aethelgard-releases/re
 
 // Beta tester feedback forms — fill in once Google Forms are created
 const FORM = {
-    A: '[FORM LINK A]',
-    B: '[FORM LINK B]',
-    C: '[FORM LINK C]',
-    D: '[FORM LINK D]',
-    E: '[FORM LINK E]',
+    A: 'https://forms.gle/EJhQe7wKKHnXSq8v7',
+    B: 'https://forms.gle/cQLMUDWKNLAteRyx6',
+    C: 'https://forms.gle/qYKENscLtZZ3k6ps8',
+    D: 'https://forms.gle/xbMFHDvUpJfYrkqo9',
+    E: 'https://forms.gle/QGgu1dbaYMjHbTas6',
 };
 
 // Design partner application form — fill in once created
