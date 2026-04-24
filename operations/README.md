@@ -20,12 +20,12 @@ docs disagree, the code is wrong — fix the code, update the doc.
 
 | Document | Status | Purpose |
 |---|---|---|
-| [`integrity-chain-email.md`](integrity-chain-email.md) | Complete (5a–5f) | How customer email is bound to the integrity chain; the reseal operation; support scenarios; delta between original spec and shipped implementation |
-| `activation-system.md` | To be written (Phase 1–2) | Activation lifecycle, device limits, fingerprint model, edge cases |
+| [`licensing-architecture.md`](licensing-architecture.md) | Complete | End-to-end system overview — two repos, data flows, security model, common failures |
+| [`activation-system.md`](activation-system.md) | Complete | Activation lifecycle, key format, device caps, fingerprint model, error paths |
+| [`integrity-chain-email.md`](integrity-chain-email.md) | Complete (5a–5f) | How customer email is bound to the integrity chain; the reseal operation; delta between original spec and shipped implementation |
 | [`admin-scripts.md`](admin-scripts.md) | Complete | `send-prep.mjs`, `deactivate.mjs`, `simulate-webhook.mjs`, env setup |
+| [`support-playbooks.md`](support-playbooks.md) | Complete | Ten response templates for the tickets you'll actually receive |
 | [`e2e-runbook.md`](e2e-runbook.md) | Complete | Pre-launch verification of the full licence lifecycle on each OS |
-| `support-playbooks.md` | To be written | Step-by-step responses to common support tickets |
-| `licensing-architecture.md` | To be written | End-to-end system overview once everything is built |
 
 ### User-facing (source)
 
@@ -36,9 +36,9 @@ when the features they describe are in users' hands.
 | Document | Status | Purpose |
 |---|---|---|
 | [`user-guides/key-sharing-and-you.md`](user-guides/key-sharing-and-you.md) | Draft | Plain-English explanation of what sharing means and why the licence email matters |
-| `user-guides/your-licence-email.md` | To be written (Phase 3) | Where users see their licensed email and what it signifies |
-| `user-guides/moving-to-a-new-device.md` | To be written (Phase 2) | The legitimate path — 3-device cap and deactivation |
-| `user-guides/changing-your-email.md` | To be written (Phase 5) | The reseal operation in plain terms |
+| [`user-guides/your-licence-email.md`](user-guides/your-licence-email.md) | Draft | Where users see their licensed email and what it signifies |
+| [`user-guides/moving-to-a-new-device.md`](user-guides/moving-to-a-new-device.md) | Draft | The legitimate path — 3-device cap and deactivation |
+| [`user-guides/changing-your-email.md`](user-guides/changing-your-email.md) | Draft | The reseal operation in plain terms |
 
 ---
 
