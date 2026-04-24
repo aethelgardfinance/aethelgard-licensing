@@ -20,7 +20,7 @@ docs disagree, the code is wrong — fix the code, update the doc.
 
 | Document | Status | Purpose |
 |---|---|---|
-| [`integrity-chain-email.md`](integrity-chain-email.md) | Design spec (pre-build) | How customer email is bound to the integrity chain; the reseal operation; support scenarios |
+| [`integrity-chain-email.md`](integrity-chain-email.md) | Implemented 5a–5c, 5d/5f pending | How customer email is bound to the integrity chain; the reseal operation; support scenarios; delta between original spec and shipped implementation |
 | `activation-system.md` | To be written (Phase 1–2) | Activation lifecycle, device limits, fingerprint model, edge cases |
 | [`admin-scripts.md`](admin-scripts.md) | Complete | `scripts/deactivate.mjs`, `scripts/send-prep.mjs`, env setup, typical flows |
 | `support-playbooks.md` | To be written (Phase 5) | Step-by-step responses to common support tickets |
