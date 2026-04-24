@@ -12,11 +12,18 @@
     },
     "devDependencies": {
         "@types/node": "^20.0.0",
-        "@vercel/node": "^3.0.0",
+        "@vercel/node": "^5.7.13",
         "ts-node": "^10.9.2",
         "typescript": "^5.4.0"
     },
     "dependencies": {
         "@upstash/redis": "^1.37.0"
+    },
+    "overrides": {
+        "path-to-regexp": "^8.2.0",
+        "undici":         "^7.16.0",
+        "minimatch":      "^10.2.5",
+        "ajv":            "^8.17.2",
+        "smol-toml":      "^1.6.1"
     }
 }
