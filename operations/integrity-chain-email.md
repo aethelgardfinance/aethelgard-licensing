@@ -1,9 +1,10 @@
 # Integrity Chain & Customer Email — Design and Operator Guidance
 
 **Status:** Implemented across Phase 5a (versioned hash), 5b (reseal
-operation + Tauri commands), and 5c (UI trigger in Vault Settings). Phase 5d
-(Integrity Dashboard display) and 5f (hardening) remain outstanding — see
-"Implementation notes" at the bottom.
+operation + Tauri commands), 5c (UI trigger in Vault Settings), 5d
+(Integrity Dashboard chain-origin display), and 5f (progress reporting +
+edge-case hardening). See "Implementation notes" at the bottom for the
+full scorecard and the items that were scoped out.
 **Last updated:** 2026-04-24
 **Audience:** Cherie / future support / maintainers
 
@@ -200,11 +201,17 @@ admin tool.
    `<email>`."* The callout disappears and the green "Chain originated
    by: `<email>` ✓" state takes over.
 
-No progress indicator is shown today — reseal of a typical vault is
-sub-second, and large-vault progress reporting is tracked as Phase 5f
-hardening work. Users of vaults with tens of thousands of transactions
-may see a longer spinner; the modal blocks backdrop-dismissal while
-resealing so users can't accidentally navigate away.
+The modal shows a progress bar during the reseal — "N of M transactions"
+counting up — driven by Rust-side `integrity-reseal-progress` events emitted
+every 100 rows during the bulk UPDATE phase. For small vaults the entire
+operation completes before the first event lands and the bar is never shown;
+users see the generic "Resealing…" button label instead.
+
+The modal blocks backdrop-dismissal while resealing so users can't
+accidentally navigate away. There is deliberately no explicit cancel button:
+reseal is atomic per-entity (rollback on any error), fast for typical
+vaults, idempotent, and the chain is never destructively modified — the
+worst case is a few extra seconds on the spinner.
 
 ---
 
@@ -340,12 +347,18 @@ Items noted here for later — not part of v1.
   `verifyPin`/localStorage pattern.
 
 ### What is outstanding
-- **Phase 5d** — Integrity Dashboard surfacing of "Chain originated by:
-  email" plus a reseal-history view reading from `integrity_reseal_log`.
-  Today the bound email is only visible in Vault Settings.
-- **Phase 5f** — hardening: large-vault progress reporting, mid-reseal
-  cancellation handling, fuzz testing on odd vault shapes (empty, single
-  entity, thousands of entities, deleted-then-re-added transactions).
+- Nothing blocking beta ship. Open items are documented inline above
+  under the "Future considerations" section — reseal-history view,
+  integrity-proof PDF export, delegated verification, multi-party chains.
+
+### What 5f explicitly skipped
+- **Mid-reseal cancellation.** Considered during the hardening pass and
+  deliberately not built. The reseal is atomic per entity, fast for
+  typical vaults, idempotent, and the chain is never destructively
+  modified — worst-case a slow reseal takes an extra few seconds on the
+  spinner. Building a cancellation token + rollback path would add real
+  complexity for minimal user benefit. Reconsider only if support
+  tickets ever mention stuck reseals on very large vaults.
 
 ### What was specified here but not built
 - **PIN hash recorded in the reseal log.** The original design proposed
