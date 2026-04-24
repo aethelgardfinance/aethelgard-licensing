@@ -26,19 +26,14 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../lib/redis.js';
 import { generateKey, randomCustomerId, annualExpiry, lifetimeExpiry, hashKey } from '../lib/keygen.js';
 import type { Tier } from '../lib/keygen.js';
+import type { KeyRecord } from '../lib/keyrecord.js';
 import { sendLicenseEmail, sendAdvisorBundleEmail } from '../lib/email.js';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// Re-export so existing callers (verify.ts) keep working.
+export type { KeyRecord, DeviceRecord } from '../lib/keyrecord.js';
+export { withActivationDefaults } from '../lib/keyrecord.js';
 
-export interface KeyRecord {
-    key:            string;
-    transaction_id: string;
-    tier:           Tier;
-    is_lifetime:    boolean;
-    issued_at:      string;
-    customer_email: string;
-    revoked:        boolean;
-}
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface PaddleEvent {
     event_type: string;
@@ -319,6 +314,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     key: k, transaction_id: tx.id, tier: 'advanced',
                     is_lifetime: true, issued_at: new Date().toISOString(),
                     customer_email: customerEmail, revoked: false,
+                    device_limit: 1, devices: [],
                 })),
                 tx.id,
             );
@@ -361,6 +357,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             key: licenseKey, transaction_id: tx.id, tier,
             is_lifetime: isLifetime, issued_at: new Date().toISOString(),
             customer_email: customerEmail, revoked: false,
+            device_limit: 3, devices: [],
         }, tx.id);
     } catch (err) {
         console.error('KV store failed (key still delivered):', err);

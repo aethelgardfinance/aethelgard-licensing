@@ -6,11 +6,14 @@
     "type": "module",
     "scripts": {
         "typecheck": "tsc --noEmit",
-        "test": "node --test lib/__tests__/keygen.test.mjs"
+        "test:crypto": "node --test lib/__tests__/keygen.test.mjs",
+        "test:activation": "node --loader ts-node/esm lib/__tests__/activation.test.ts",
+        "test": "npm run test:crypto && npm run test:activation"
     },
     "devDependencies": {
         "@types/node": "^20.0.0",
         "@vercel/node": "^3.0.0",
+        "ts-node": "^10.9.2",
         "typescript": "^5.4.0"
     },
     "dependencies": {
