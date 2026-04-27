@@ -7,8 +7,9 @@
     "scripts": {
         "typecheck": "tsc --noEmit",
         "test:crypto": "node --test lib/__tests__/keygen.test.mjs",
+        "test:crypto-pdfstudio": "node --test lib/__tests__/keygen-pdfstudio.test.mjs",
         "test:activation": "node --loader ts-node/esm lib/__tests__/activation.test.ts",
-        "test": "npm run test:crypto && npm run test:activation"
+        "test": "npm run test:crypto && npm run test:crypto-pdfstudio && npm run test:activation"
     },
     "devDependencies": {
         "@types/node": "^20.0.0",
