@@ -20,6 +20,7 @@
  *   PADDLE_STANDARD_PRICE_ID / PADDLE_SOVEREIGN_PRICE_ID
  *   PADDLE_ADVANCED_PRICE_ID / PADDLE_CORPORATE_PRICE_ID
  *   (+ LIFETIME and ADVISOR_BUNDLE variants)
+ *   PADDLE_PDFSTUDIO_PRICE_ID — issues a PDFST-… key (standalone, annual)
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -27,7 +28,13 @@ import { kv } from '../lib/redis.js';
 import { generateKey, randomCustomerId, annualExpiry, lifetimeExpiry, hashKey } from '../lib/keygen.js';
 import type { Tier } from '../lib/keygen.js';
 import type { KeyRecord } from '../lib/keyrecord.js';
-import { sendLicenseEmail, sendAdvisorBundleEmail } from '../lib/email.js';
+import { sendLicenseEmail, sendAdvisorBundleEmail, sendPdfStudioLicenseEmail } from '../lib/email.js';
+import {
+    generatePdfStudioKey,
+    randomCustomerId as randomCustomerIdPdfStudio,
+    annualExpiry as annualExpiryPdfStudio,
+    hashPdfStudioKey,
+} from '../lib/keygen-pdfstudio.js';
 
 // Re-export so existing callers (verify.ts) keep working.
 export type { KeyRecord, DeviceRecord } from '../lib/keyrecord.js';
@@ -171,6 +178,32 @@ async function revokeByTransaction(txId: string): Promise<number> {
     return records.filter(Boolean).length;
 }
 
+// ── PDF Studio storage (separate KV namespace to keep schemas isolated) ──────
+
+interface PdfStudioKeyRecord {
+    key: string;
+    transaction_id: string;
+    issued_at: string;
+    expires_at: string;
+    customer_email: string;
+    revoked: boolean;
+}
+
+async function storePdfStudioKey(record: PdfStudioKeyRecord, txId: string): Promise<void> {
+    const h = await hashPdfStudioKey(record.key);
+    await kv.set(`pdfst-key:${h}`, record);
+    await kv.set(`pdfst-tx:${txId}`, h);
+}
+
+async function revokePdfStudioByTransaction(txId: string): Promise<number> {
+    const stored = await kv.get<string>(`pdfst-tx:${txId}`);
+    if (!stored) return 0;
+    const record = await kv.get<PdfStudioKeyRecord>(`pdfst-key:${stored}`);
+    if (!record) return 0;
+    await kv.set(`pdfst-key:${stored}`, { ...record, revoked: true });
+    return 1;
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -219,8 +252,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const adj = event.data as unknown as PaddleAdjustment;
         if (adj.action === 'refund' && adj.status === 'approved' && adj.transaction_id) {
             try {
-                const count = await revokeByTransaction(adj.transaction_id);
-                console.log(`Revoked ${count} key(s) for transaction ${adj.transaction_id} (adjustment ${adj.id})`);
+                const aethelgardCount = await revokeByTransaction(adj.transaction_id);
+                const pdfStudioCount = await revokePdfStudioByTransaction(adj.transaction_id);
+                const total = aethelgardCount + pdfStudioCount;
+                console.log(`Revoked ${total} key(s) for transaction ${adj.transaction_id} (adjustment ${adj.id})`);
             } catch (err) {
                 console.error('KV revocation error:', err);
             }
@@ -231,6 +266,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── 4. Only process completed transactions from here ─────────────────────
     if (event.event_type !== 'transaction.completed') {
         return res.status(200).json({ received: true, skipped: true });
+    }
+
+    // ── 5. Idempotency for PDF Studio (separate KV namespace) ─────────────────
+    try {
+        const existingPdfst = await kv.get<string>(`pdfst-tx:${tx.id}`);
+        if (existingPdfst) {
+            const record = await kv.get<PdfStudioKeyRecord>(`pdfst-key:${existingPdfst}`);
+            if (record && record.customer_email) {
+                await sendPdfStudioLicenseEmail({
+                    to: record.customer_email,
+                    customerName: record.customer_email,
+                    licenseKey: record.key,
+                    expiryDate: new Date(record.expires_at),
+                });
+                console.log(`Re-delivered existing PDF Studio key to ${record.customer_email} (tx: ${tx.id})`);
+                return res.status(200).json({ success: true, idempotent: true });
+            }
+        }
+    } catch (err) {
+        console.warn('PDF Studio KV idempotency check failed, proceeding:', err);
     }
 
     // ── 5. Idempotency — check if this transaction was already processed ──────
@@ -284,14 +339,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ── 7. Resolve price ID ───────────────────────────────────────────────────
-    const priceId       = tx.items?.[0]?.price?.id;
-    const bundlePriceId = process.env['PADDLE_ADVISOR_BUNDLE_PRICE_ID'];
+    const priceId         = tx.items?.[0]?.price?.id;
+    const bundlePriceId   = process.env['PADDLE_ADVISOR_BUNDLE_PRICE_ID'];
+    const pdfStudioPriceId = process.env['PADDLE_PDFSTUDIO_PRICE_ID'];
     const isAdvisorBundle = priceId && bundlePriceId && priceId === bundlePriceId;
+    const isPdfStudio     = priceId && pdfStudioPriceId && priceId === pdfStudioPriceId;
 
     const masterSecret = process.env['AETHELGARD_LICENSE_SECRET'];
     if (!masterSecret) {
         console.error('AETHELGARD_LICENSE_SECRET not configured');
         return res.status(500).json({ error: 'Server misconfiguration' });
+    }
+
+    // ── 8a-pdfstudio. PDF Studio standalone — single PDFST-… key ─────────────
+    if (isPdfStudio) {
+        const expiryDate = annualExpiryPdfStudio();
+        let licenseKey: string;
+        try {
+            licenseKey = await generatePdfStudioKey(
+                'standalone',
+                randomCustomerIdPdfStudio(),
+                expiryDate,
+                masterSecret,
+            );
+        } catch (err) {
+            console.error('PDF Studio key generation failed:', err);
+            return res.status(500).json({ error: 'Key generation failed' });
+        }
+
+        try {
+            await storePdfStudioKey(
+                {
+                    key: licenseKey,
+                    transaction_id: tx.id,
+                    issued_at: new Date().toISOString(),
+                    expires_at: expiryDate.toISOString(),
+                    customer_email: customerEmail,
+                    revoked: false,
+                },
+                tx.id,
+            );
+        } catch (err) {
+            console.error('PDF Studio KV store failed (key still delivered):', err);
+        }
+
+        try {
+            await sendPdfStudioLicenseEmail({
+                to: customerEmail,
+                customerName,
+                licenseKey,
+                expiryDate,
+            });
+        } catch (err) {
+            console.error('PDF Studio email delivery failed:', err);
+            return res.status(500).json({ error: 'Email delivery failed' });
+        }
+
+        console.log(`PDF Studio license delivered to ${customerEmail} (tx: ${tx.id})`);
+        return res.status(200).json({ success: true });
     }
 
     // ── 8a. Advisor bundle — 3 × Advanced Lifetime keys ──────────────────────

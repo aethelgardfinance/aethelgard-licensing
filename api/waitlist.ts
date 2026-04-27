@@ -2,8 +2,9 @@
  * Vercel Serverless Function — waitlist / design partner form submissions.
  *
  * POST /api/waitlist
- * Body (design-partner): { email, name, role, background, type: "design-partner" }
- * Body (mac-waitlist):   { email, type: "mac-waitlist" }
+ * Body (design-partner):       { email, name, role, background, type: "design-partner" }
+ * Body (mac-waitlist):          { email, type: "mac-waitlist" }
+ * Body (pdf-studio-waitlist):   { email, type: "pdf-studio-waitlist" }
  *
  * Sends a notification to contact@aethelgard.finance via Resend.
  */
@@ -49,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Invalid email address' });
     }
 
-    if (type !== 'design-partner' && type !== 'mac-waitlist') {
+    if (type !== 'design-partner' && type !== 'mac-waitlist' && type !== 'pdf-studio-waitlist') {
         return res.status(400).json({ error: 'Invalid type' });
     }
 
@@ -63,7 +64,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(500).json({ error: 'Server configuration error' });
     }
 
-    const label = type === 'design-partner' ? 'Design Partner Application' : 'Mac Waitlist';
+    const label =
+        type === 'design-partner' ? 'Design Partner Application'
+        : type === 'pdf-studio-waitlist' ? 'PDF Studio Waitlist'
+        : 'Mac Waitlist';
     const subject = `[Aethelgard] New ${label}: ${name ? escapeHtml(name) + ' — ' : ''}${email}`;
     const html = type === 'design-partner'
         ? `<h2>New Design Partner Application</h2>
