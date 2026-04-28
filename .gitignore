@@ -11,3 +11,6 @@ dist/
 # Beta tester personal data and generated email drafts — never commit
 scripts/testers.json
 scripts/drafts/
+
+# Claude Code local data (permissions, memory, sessions) — per-machine, not for sharing
+.claude/
