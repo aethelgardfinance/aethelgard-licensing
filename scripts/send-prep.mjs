@@ -25,8 +25,10 @@ const __dir = dirname(fileURLToPath(import.meta.url));
 
 const DEV_SECRET  = 'aethelgard-dev-only-secret-do-not-use-in-production-builds-2026';
 const SECRET      = process.env.AETHELGARD_LICENSE_SECRET ?? DEV_SECRET;
-const VERSION     = '1.6.2';
+const VERSION     = '1.10.0';
 const DOWNLOAD    = `https://github.com/aethelgardfinance/aethelgard-releases/releases/tag/v${VERSION}`;
+const PDF_STUDIO_VERSION  = '0.2.0';
+const PDF_STUDIO_DOWNLOAD = `https://github.com/aethelgardfinance/pdf-studio-releases/releases/tag/v${PDF_STUDIO_VERSION}`;
 
 // Beta tester feedback forms — fill in once Google Forms are created
 const FORM = {
@@ -119,6 +121,16 @@ const KEY_BLOCK = (key, expiryStr) =>
 
 `;
 
+const PDF_STUDIO_BLOCK =
+`**Bonus — Aethelgard PDF Studio is included free with your licence.** The same key unlocks our standalone PDF editor: 6 finance-grade templates (Gift Letter, Trustee Resolution, Board Minutes, Loan Agreement, ISA/SIPP Transfer, Letter/memo), brand profiles with logo + letterhead, watermarks, redaction, signatures. Optional install: ${PDF_STUDIO_DOWNLOAD}
+
+`;
+
+const PDF_STUDIO_BLOCK_NL =
+`**Bonus — Aethelgard PDF Studio is gratis inbegrepen bij je licentie.** Dezelfde sleutel ontgrendelt onze losstaande PDF-editor: 6 finance-templates, merkprofielen met logo en briefhoofd, watermerken, redactie, handtekeningen. Optionele installatie: ${PDF_STUDIO_DOWNLOAD}
+
+`;
+
 function emailA(t) {
     const open = t.personal_note
         ? `Hi ${t.name},\n\n${t.personal_note}\n\nI wanted to share what I've been building:`
@@ -143,7 +155,7 @@ About 60–75 minutes of your time over the next two weeks, filling in the feedb
 **Download:** ${DOWNLOAD}
 **Feedback form:** ${FORM.A}
 
-${t.tech_savvy ? '' : SMARTSCREEN}${KEY_BLOCK(t.key, t.expiryStr)}**What you get:**
+${t.tech_savvy ? '' : SMARTSCREEN}${KEY_BLOCK(t.key, t.expiryStr)}${PDF_STUDIO_BLOCK}**What you get:**
 Lifetime access when it launches, and direct input into the roadmap.
 
 Any questions, just reply.
@@ -168,7 +180,7 @@ Ongeveer 70 minuten van je tijd, verspreid over de komende twee weken. Vul het f
 **Download:** ${DOWNLOAD}
 **Feedbackformulier:** ${FORM.B}
 
-${t.tech_savvy ? '' : SMARTSCREEN}${KEY_BLOCK(t.key, t.expiryStr)}**Wat je ervoor terugkrijgt:**
+${t.tech_savvy ? '' : SMARTSCREEN}${KEY_BLOCK(t.key, t.expiryStr)}${PDF_STUDIO_BLOCK_NL}**Wat je ervoor terugkrijgt:**
 Levenslange toegang zodra de app uitkomt, en directe invloed op de functies die er voor jouw type bedrijf toe doen.
 
 Met vriendelijke groet,
@@ -192,7 +204,7 @@ About 70 minutes of your time. Fill in the feedback form as you go — no calls 
 **Download:** ${DOWNLOAD}
 **Feedback form:** ${FORM.B}
 
-${t.tech_savvy ? '' : SMARTSCREEN}${KEY_BLOCK(t.key, t.expiryStr)}**What you get:**
+${t.tech_savvy ? '' : SMARTSCREEN}${KEY_BLOCK(t.key, t.expiryStr)}${PDF_STUDIO_BLOCK}**What you get:**
 Lifetime access at launch and direct input into features that matter for businesses like yours.
 
 Cherie`;
@@ -223,7 +235,7 @@ The app is built with Tauri (Rust backend). Data never leaves your machine unles
 **Download:** ${DOWNLOAD}
 **Feedback form:** ${FORM.C}
 
-${KEY_BLOCK(t.key, t.expiryStr)}**What you get:** Lifetime access at launch and the kind of honest feedback loop that most software developers never get.
+${KEY_BLOCK(t.key, t.expiryStr)}${PDF_STUDIO_BLOCK}**What you get:** Lifetime access at launch and the kind of honest feedback loop that most software developers never get.
 
 Cherie`;
 }
@@ -256,7 +268,7 @@ About 75 minutes to set up two or three entities, move a transaction between the
 **Download:** ${DOWNLOAD}
 **Feedback form:** ${FORM.D}
 
-${t.tech_savvy ? '' : SMARTSCREEN}${KEY_BLOCK(t.key, t.expiryStr)}**What you get:**
+${t.tech_savvy ? '' : SMARTSCREEN}${KEY_BLOCK(t.key, t.expiryStr)}${PDF_STUDIO_BLOCK}**What you get:**
 Lifetime access at launch and a direct line to the roadmap for features that actually matter at your scale.
 
 Cherie`;
@@ -288,7 +300,7 @@ I'm not looking for a polished review. I'm looking for an honest professional op
 **Download:** ${DOWNLOAD}
 **Feedback form:** ${FORM.E}
 
-${t.tech_savvy ? '' : SMARTSCREEN}${KEY_BLOCK(t.key, t.expiryStr)}**What you get:** Lifetime access at launch. If you find a genuine accounting error, I'll credit you in the release notes.
+${t.tech_savvy ? '' : SMARTSCREEN}${KEY_BLOCK(t.key, t.expiryStr)}${PDF_STUDIO_BLOCK}**What you get:** Lifetime access at launch. If you find a genuine accounting error, I'll credit you in the release notes.
 
 Cherie`;
 }
