@@ -152,6 +152,75 @@ export async function sendPdfStudioLicenseEmail(params: SendPdfStudioLicenseEmai
     await sendEmail(to, 'Your Aethelgard PDF Studio License Key', html);
 }
 
+// ── Sentinel standalone license email ────────────────────────────────────────
+
+interface SendSentinelLicenseEmailParams {
+    to: string;
+    customerName: string;
+    licenseKey: string;
+    expiryDate: Date;
+}
+
+export async function sendSentinelLicenseEmail(params: SendSentinelLicenseEmailParams): Promise<void> {
+    const { to, customerName, licenseKey, expiryDate } = params;
+    const expiryStr = expiryDate.toISOString().slice(0, 10);
+
+    const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f9fafb;margin:0;padding:40px 20px">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden">
+
+    <div style="background:#0b1e3f;padding:32px 40px">
+      <h1 style="color:#fff;margin:0;font-size:22px;font-weight:700;letter-spacing:-0.5px">Aethelgard Sentinel</h1>
+      <p style="color:#c9a45a;margin:8px 0 0;font-size:14px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase">Standalone — Annual</p>
+    </div>
+
+    <div style="padding:40px">
+      <p style="color:#111827;font-size:16px;margin:0 0 24px">Hi ${escapeHtml(customerName)},</p>
+      <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 24px">
+        Thank you for purchasing <strong>Aethelgard Sentinel</strong>. Your license key is below.
+      </p>
+
+      <div style="background:#fbf8f0;border:1px solid #d8d3c7;border-radius:8px;padding:20px;margin:0 0 24px;text-align:center">
+        <p style="color:#0b1e3f;font-family:monospace;font-size:18px;font-weight:700;letter-spacing:2px;margin:0;word-break:break-all">
+          ${escapeHtml(licenseKey)}
+        </p>
+      </div>
+
+      <p style="color:#6b7280;font-size:14px;margin:0">Your license is valid until <strong>${expiryStr}</strong>. We'll email you when it's time to renew.</p>
+
+      <hr style="border:none;border-top:1px solid #f3f4f6;margin:32px 0">
+
+      <h2 style="color:#111827;font-size:15px;font-weight:600;margin:0 0 12px">How to activate</h2>
+      <ol style="color:#374151;font-size:14px;line-height:1.8;margin:0 0 24px;padding-left:20px">
+        <li>Download Aethelgard Sentinel for Windows: <a href="https://aethelgard.finance/sentinel" style="color:#c9a45a">aethelgard.finance/sentinel</a></li>
+        <li>Run the installer.</li>
+        <li>On first launch, paste your key and click <strong>Activate</strong>.</li>
+      </ol>
+
+      <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0 0 12px">
+        Already use Aethelgard at Sovereign or Corporate tier? Your existing AETHG-… key activates Sentinel for free. This standalone key is for using Sentinel on its own.
+      </p>
+
+      <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0">
+        Questions? Reply to this email — we're a small team and we read every message.
+      </p>
+    </div>
+
+    <div style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:20px 40px">
+      <p style="color:#9ca3af;font-size:12px;margin:0">
+        Aethelgard Sentinel — regime-aware portfolio decision engine for sophisticated private capital.
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>`;
+
+    await sendEmail(to, 'Your Aethelgard Sentinel License Key', html);
+}
+
 // ── Advisor bundle email (3 × Advanced Lifetime) ─────────────────────────────
 
 interface SendAdvisorBundleEmailParams {
