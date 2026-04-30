@@ -28,13 +28,19 @@ import { kv } from '../lib/redis.js';
 import { generateKey, randomCustomerId, annualExpiry, lifetimeExpiry, hashKey } from '../lib/keygen.js';
 import type { Tier } from '../lib/keygen.js';
 import type { KeyRecord } from '../lib/keyrecord.js';
-import { sendLicenseEmail, sendAdvisorBundleEmail, sendPdfStudioLicenseEmail } from '../lib/email.js';
+import { sendLicenseEmail, sendAdvisorBundleEmail, sendPdfStudioLicenseEmail, sendSentinelLicenseEmail } from '../lib/email.js';
 import {
     generatePdfStudioKey,
     randomCustomerId as randomCustomerIdPdfStudio,
     annualExpiry as annualExpiryPdfStudio,
     hashPdfStudioKey,
 } from '../lib/keygen-pdfstudio.js';
+import {
+    generateSentinelKey,
+    randomCustomerId as randomCustomerIdSentinel,
+    annualExpiry as annualExpirySentinel,
+    hashSentinelKey,
+} from '../lib/keygen-sentinel.js';
 
 // Re-export so existing callers (verify.ts) keep working.
 export type { KeyRecord, DeviceRecord } from '../lib/keyrecord.js';
@@ -204,6 +210,32 @@ async function revokePdfStudioByTransaction(txId: string): Promise<number> {
     return 1;
 }
 
+// ── Sentinel storage (separate KV namespace to keep schemas isolated) ────────
+
+interface SentinelKeyRecord {
+    key: string;
+    transaction_id: string;
+    issued_at: string;
+    expires_at: string;
+    customer_email: string;
+    revoked: boolean;
+}
+
+async function storeSentinelKey(record: SentinelKeyRecord, txId: string): Promise<void> {
+    const h = await hashSentinelKey(record.key);
+    await kv.set(`senti-key:${h}`, record);
+    await kv.set(`senti-tx:${txId}`, h);
+}
+
+async function revokeSentinelByTransaction(txId: string): Promise<number> {
+    const stored = await kv.get<string>(`senti-tx:${txId}`);
+    if (!stored) return 0;
+    const record = await kv.get<SentinelKeyRecord>(`senti-key:${stored}`);
+    if (!record) return 0;
+    await kv.set(`senti-key:${stored}`, { ...record, revoked: true });
+    return 1;
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -254,7 +286,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             try {
                 const aethelgardCount = await revokeByTransaction(adj.transaction_id);
                 const pdfStudioCount = await revokePdfStudioByTransaction(adj.transaction_id);
-                const total = aethelgardCount + pdfStudioCount;
+                const sentinelCount = await revokeSentinelByTransaction(adj.transaction_id);
+                const total = aethelgardCount + pdfStudioCount + sentinelCount;
                 console.log(`Revoked ${total} key(s) for transaction ${adj.transaction_id} (adjustment ${adj.id})`);
             } catch (err) {
                 console.error('KV revocation error:', err);
@@ -286,6 +319,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
     } catch (err) {
         console.warn('PDF Studio KV idempotency check failed, proceeding:', err);
+    }
+
+    // ── 5. Idempotency for Sentinel (separate KV namespace) ───────────────────
+    try {
+        const existingSenti = await kv.get<string>(`senti-tx:${tx.id}`);
+        if (existingSenti) {
+            const record = await kv.get<SentinelKeyRecord>(`senti-key:${existingSenti}`);
+            if (record && record.customer_email) {
+                await sendSentinelLicenseEmail({
+                    to: record.customer_email,
+                    customerName: record.customer_email,
+                    licenseKey: record.key,
+                    expiryDate: new Date(record.expires_at),
+                });
+                console.log(`Re-delivered existing Sentinel key to ${record.customer_email} (tx: ${tx.id})`);
+                return res.status(200).json({ success: true, idempotent: true });
+            }
+        }
+    } catch (err) {
+        console.warn('Sentinel KV idempotency check failed, proceeding:', err);
     }
 
     // ── 5. Idempotency — check if this transaction was already processed ──────
@@ -342,8 +395,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const priceId         = tx.items?.[0]?.price?.id;
     const bundlePriceId   = process.env['PADDLE_ADVISOR_BUNDLE_PRICE_ID'];
     const pdfStudioPriceId = process.env['PADDLE_PDFSTUDIO_PRICE_ID'];
+    const sentinelPriceId  = process.env['PADDLE_SENTINEL_PRICE_ID'];
     const isAdvisorBundle = priceId && bundlePriceId && priceId === bundlePriceId;
     const isPdfStudio     = priceId && pdfStudioPriceId && priceId === pdfStudioPriceId;
+    const isSentinel      = priceId && sentinelPriceId && priceId === sentinelPriceId;
 
     const masterSecret = process.env['AETHELGARD_LICENSE_SECRET'];
     if (!masterSecret) {
@@ -396,6 +451,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         console.log(`PDF Studio license delivered to ${customerEmail} (tx: ${tx.id})`);
+        return res.status(200).json({ success: true });
+    }
+
+    // ── 8a-sentinel. Sentinel standalone — single SENTI-… key ────────────────
+    if (isSentinel) {
+        const expiryDate = annualExpirySentinel();
+        let licenseKey: string;
+        try {
+            licenseKey = await generateSentinelKey(
+                'standalone',
+                randomCustomerIdSentinel(),
+                expiryDate,
+                masterSecret,
+            );
+        } catch (err) {
+            console.error('Sentinel key generation failed:', err);
+            return res.status(500).json({ error: 'Key generation failed' });
+        }
+
+        try {
+            await storeSentinelKey(
+                {
+                    key: licenseKey,
+                    transaction_id: tx.id,
+                    issued_at: new Date().toISOString(),
+                    expires_at: expiryDate.toISOString(),
+                    customer_email: customerEmail,
+                    revoked: false,
+                },
+                tx.id,
+            );
+        } catch (err) {
+            console.error('Sentinel KV store failed (key still delivered):', err);
+        }
+
+        try {
+            await sendSentinelLicenseEmail({
+                to: customerEmail,
+                customerName,
+                licenseKey,
+                expiryDate,
+            });
+        } catch (err) {
+            console.error('Sentinel email delivery failed:', err);
+            return res.status(500).json({ error: 'Email delivery failed' });
+        }
+
+        console.log(`Sentinel license delivered to ${customerEmail} (tx: ${tx.id})`);
         return res.status(200).json({ success: true });
     }
 
