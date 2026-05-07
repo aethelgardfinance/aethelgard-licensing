@@ -1,9 +1,17 @@
 /**
  * License key delivery emails via Resend.
  * https://resend.com/docs/api-reference/emails/send-email
+ *
+ * All license-delivery callers route through `sendEmailWithDeadLetter` so a
+ * Resend outage / bounce / rate-limit no longer silently loses the customer
+ * email. See lib/email-retry.ts for the retry + dead-letter logic. The
+ * functions below accept a `txId` parameter to key the dead-letter record;
+ * pass `tx.id` from the Paddle webhook so a manual replay or Slack alert
+ * has the right anchor.
  */
 
 import type { Tier } from './keygen.js';
+import { sendEmailWithDeadLetter, type SendEmailResult } from './email-retry.js';
 
 const TIER_LABEL: Record<Tier, string> = {
     basic:    'Basic',
@@ -20,10 +28,12 @@ interface SendLicenseEmailParams {
     licenseKey: string;
     isLifetime: boolean;
     expiryDate: Date | null;
+    /** Idempotency key for the dead-letter queue (Paddle transaction id). */
+    txId: string;
 }
 
-export async function sendLicenseEmail(params: SendLicenseEmailParams): Promise<void> {
-    const { to, customerName, tier, licenseKey, isLifetime, expiryDate } = params;
+export async function sendLicenseEmail(params: SendLicenseEmailParams): Promise<SendEmailResult> {
+    const { to, customerName, tier, licenseKey, isLifetime, expiryDate, txId } = params;
     const tierLabel = TIER_LABEL[tier];
 
     const expiryLine = isLifetime
@@ -80,7 +90,7 @@ export async function sendLicenseEmail(params: SendLicenseEmailParams): Promise<
 </body>
 </html>`;
 
-    await sendEmail(to, `Your Aethelgard ${tierLabel} License Key`, html);
+    return sendEmailWithDeadLetter(to, `Your Aethelgard ${tierLabel} License Key`, html, txId);
 }
 
 // ── PDF Studio standalone license email ──────────────────────────────────────
@@ -90,10 +100,11 @@ interface SendPdfStudioLicenseEmailParams {
     customerName: string;
     licenseKey: string;
     expiryDate: Date;
+    txId: string;
 }
 
-export async function sendPdfStudioLicenseEmail(params: SendPdfStudioLicenseEmailParams): Promise<void> {
-    const { to, customerName, licenseKey, expiryDate } = params;
+export async function sendPdfStudioLicenseEmail(params: SendPdfStudioLicenseEmailParams): Promise<SendEmailResult> {
+    const { to, customerName, licenseKey, expiryDate, txId } = params;
     const expiryStr = expiryDate.toISOString().slice(0, 10);
 
     const html = `<!DOCTYPE html>
@@ -149,7 +160,7 @@ export async function sendPdfStudioLicenseEmail(params: SendPdfStudioLicenseEmai
 </body>
 </html>`;
 
-    await sendEmail(to, 'Your Aethelgard PDF Studio License Key', html);
+    return sendEmailWithDeadLetter(to, 'Your Aethelgard PDF Studio License Key', html, txId);
 }
 
 // ── Sentinel standalone license email ────────────────────────────────────────
@@ -159,10 +170,11 @@ interface SendSentinelLicenseEmailParams {
     customerName: string;
     licenseKey: string;
     expiryDate: Date;
+    txId: string;
 }
 
-export async function sendSentinelLicenseEmail(params: SendSentinelLicenseEmailParams): Promise<void> {
-    const { to, customerName, licenseKey, expiryDate } = params;
+export async function sendSentinelLicenseEmail(params: SendSentinelLicenseEmailParams): Promise<SendEmailResult> {
+    const { to, customerName, licenseKey, expiryDate, txId } = params;
     const expiryStr = expiryDate.toISOString().slice(0, 10);
 
     const html = `<!DOCTYPE html>
@@ -218,7 +230,7 @@ export async function sendSentinelLicenseEmail(params: SendSentinelLicenseEmailP
 </body>
 </html>`;
 
-    await sendEmail(to, 'Your Aethelgard Sentinel License Key', html);
+    return sendEmailWithDeadLetter(to, 'Your Aethelgard Sentinel License Key', html, txId);
 }
 
 // ── Advisor bundle email (3 × Advanced Lifetime) ─────────────────────────────
@@ -227,10 +239,11 @@ interface SendAdvisorBundleEmailParams {
     to: string;
     customerName: string;
     licenseKeys: [string, string, string];
+    txId: string;
 }
 
-export async function sendAdvisorBundleEmail(params: SendAdvisorBundleEmailParams): Promise<void> {
-    const { to, customerName, licenseKeys } = params;
+export async function sendAdvisorBundleEmail(params: SendAdvisorBundleEmailParams): Promise<SendEmailResult> {
+    const { to, customerName, licenseKeys, txId } = params;
 
     const keyBlocks = licenseKeys.map((key, i) => `
       <div style="margin-bottom:16px">
@@ -292,34 +305,10 @@ export async function sendAdvisorBundleEmail(params: SendAdvisorBundleEmailParam
 </body>
 </html>`;
 
-    await sendEmail(to, 'Your Aethelgard Advisor Bundle — 3 License Keys', html);
+    return sendEmailWithDeadLetter(to, 'Your Aethelgard Advisor Bundle — 3 License Keys', html, txId);
 }
 
-// ── Shared sender ─────────────────────────────────────────────────────────────
-
-async function sendEmail(to: string, subject: string, html: string): Promise<void> {
-    const resendApiKey = process.env['RESEND_API_KEY'];
-    if (!resendApiKey) throw new Error('RESEND_API_KEY is not configured');
-
-    const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            from: 'Aethelgard <contact@aethelgard.finance>',
-            to,
-            subject,
-            html,
-        }),
-    });
-
-    if (!res.ok) {
-        const body = await res.text();
-        throw new Error(`Resend API error ${res.status}: ${body}`);
-    }
-}
+// ── Shared escape helper ─────────────────────────────────────────────────────
 
 function escapeHtml(s: string): string {
     return s

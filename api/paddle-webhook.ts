@@ -308,14 +308,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (existingPdfst) {
             const record = await kv.get<PdfStudioKeyRecord>(`pdfst-key:${existingPdfst}`);
             if (record && record.customer_email) {
-                await sendPdfStudioLicenseEmail({
+                const r = await sendPdfStudioLicenseEmail({
                     to: record.customer_email,
                     customerName: record.customer_email,
                     licenseKey: record.key,
                     expiryDate: new Date(record.expires_at),
+                    txId: tx.id,
                 });
-                console.log(`Re-delivered existing PDF Studio key to ${redactEmail(record.customer_email)} (tx: ${tx.id})`);
-                return res.status(200).json({ success: true, idempotent: true });
+                logDelivery('PDF Studio (re-delivery)', tx.id, record.customer_email, r);
+                return res.status(200).json({ success: true, idempotent: true, delivered: r.delivered });
             }
         }
     } catch (err) {
@@ -328,14 +329,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (existingSenti) {
             const record = await kv.get<SentinelKeyRecord>(`senti-key:${existingSenti}`);
             if (record && record.customer_email) {
-                await sendSentinelLicenseEmail({
+                const r = await sendSentinelLicenseEmail({
                     to: record.customer_email,
                     customerName: record.customer_email,
                     licenseKey: record.key,
                     expiryDate: new Date(record.expires_at),
+                    txId: tx.id,
                 });
-                console.log(`Re-delivered existing Sentinel key to ${redactEmail(record.customer_email)} (tx: ${tx.id})`);
-                return res.status(200).json({ success: true, idempotent: true });
+                logDelivery('Sentinel (re-delivery)', tx.id, record.customer_email, r);
+                return res.status(200).json({ success: true, idempotent: true, delivered: r.delivered });
             }
         }
     } catch (err) {
@@ -355,25 +357,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (valid.length > 0 && valid[0].customer_email) {
                 const email = valid[0].customer_email;
+                let result;
                 if (valid.length === 3) {
-                    await sendAdvisorBundleEmail({
+                    result = await sendAdvisorBundleEmail({
                         to: email,
                         customerName: email,
                         licenseKeys: [valid[0].key, valid[1].key, valid[2].key],
+                        txId: tx.id,
                     });
                 } else {
                     const r = valid[0];
-                    await sendLicenseEmail({
+                    result = await sendLicenseEmail({
                         to: email,
                         customerName: email,
                         tier: r.tier as Tier,
                         licenseKey: r.key,
                         isLifetime: r.is_lifetime,
                         expiryDate: r.is_lifetime ? null : new Date(r.issued_at),
+                        txId: tx.id,
                     });
                 }
-                console.log(`Re-delivered existing key(s) to ${redactEmail(email)} (tx: ${tx.id})`);
-                return res.status(200).json({ success: true, idempotent: true });
+                logDelivery('Aethelgard (re-delivery)', tx.id, email, result);
+                return res.status(200).json({ success: true, idempotent: true, delivered: result.delivered });
             }
         }
     } catch (err) {
@@ -439,20 +444,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             console.error('PDF Studio KV store failed (key still delivered):', err);
         }
 
-        try {
-            await sendPdfStudioLicenseEmail({
-                to: customerEmail,
-                customerName,
-                licenseKey,
-                expiryDate,
-            });
-        } catch (err) {
-            console.error('PDF Studio email delivery failed:', err);
-            return res.status(500).json({ error: 'Email delivery failed' });
-        }
+        const emailResult = await sendPdfStudioLicenseEmail({
+            to: customerEmail,
+            customerName,
+            licenseKey,
+            expiryDate,
+            txId: tx.id,
+        });
 
-        console.log(`PDF Studio license delivered to ${redactEmail(customerEmail)} (tx: ${tx.id})`);
-        return res.status(200).json({ success: true });
+        logDelivery('PDF Studio', tx.id, customerEmail, emailResult);
+        return res.status(200).json({ success: true, delivered: emailResult.delivered });
     }
 
     // ── 8a-sentinel. Sentinel standalone — single SENTI-… key ────────────────
@@ -487,20 +488,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             console.error('Sentinel KV store failed (key still delivered):', err);
         }
 
-        try {
-            await sendSentinelLicenseEmail({
-                to: customerEmail,
-                customerName,
-                licenseKey,
-                expiryDate,
-            });
-        } catch (err) {
-            console.error('Sentinel email delivery failed:', err);
-            return res.status(500).json({ error: 'Email delivery failed' });
-        }
+        const emailResult = await sendSentinelLicenseEmail({
+            to: customerEmail,
+            customerName,
+            licenseKey,
+            expiryDate,
+            txId: tx.id,
+        });
 
-        console.log(`Sentinel license delivered to ${redactEmail(customerEmail)} (tx: ${tx.id})`);
-        return res.status(200).json({ success: true });
+        logDelivery('Sentinel', tx.id, customerEmail, emailResult);
+        return res.status(200).json({ success: true, delivered: emailResult.delivered });
     }
 
     // ── 8a. Advisor bundle — 3 × Advanced Lifetime keys ──────────────────────
@@ -531,15 +528,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             console.error('KV bundle store failed (key still delivered):', err);
         }
 
-        try {
-            await sendAdvisorBundleEmail({ to: customerEmail, customerName, licenseKeys: keys });
-        } catch (err) {
-            console.error('Bundle email delivery failed:', err);
-            return res.status(500).json({ error: 'Email delivery failed' });
-        }
+        const emailResult = await sendAdvisorBundleEmail({
+            to: customerEmail,
+            customerName,
+            licenseKeys: keys,
+            txId: tx.id,
+        });
 
-        console.log(`Advisor bundle delivered to ${redactEmail(customerEmail)} (tx: ${tx.id})`);
-        return res.status(200).json({ success: true });
+        logDelivery('Advisor bundle', tx.id, customerEmail, emailResult);
+        return res.status(200).json({ success: true, delivered: emailResult.delivered });
     }
 
     // ── 8b. Single license ────────────────────────────────────────────────────
@@ -572,13 +569,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error('KV store failed (key still delivered):', err);
     }
 
-    try {
-        await sendLicenseEmail({ to: customerEmail, customerName, tier, licenseKey, isLifetime, expiryDate });
-    } catch (err) {
-        console.error('Email delivery failed:', err);
-        return res.status(500).json({ error: 'Email delivery failed' });
-    }
+    const emailResult = await sendLicenseEmail({
+        to: customerEmail,
+        customerName,
+        tier,
+        licenseKey,
+        isLifetime,
+        expiryDate,
+        txId: tx.id,
+    });
 
-    console.log(`License delivered: ${tier} to ${redactEmail(customerEmail)} (tx: ${tx.id})`);
-    return res.status(200).json({ success: true });
+    logDelivery(`Aethelgard ${tier}`, tx.id, customerEmail, emailResult);
+    return res.status(200).json({ success: true, delivered: emailResult.delivered });
+}
+
+/**
+ * Log a delivery outcome consistently across all five paths. The
+ * dead-letter retry helper has already alerted on terminal failure;
+ * this is the always-on log line that joins tx_id to redacted email so
+ * audit trails read the same in both happy and dead-lettered paths.
+ */
+function logDelivery(
+    productLabel: string,
+    txId: string,
+    customerEmail: string,
+    result: { delivered: boolean; attempts: number },
+): void {
+    if (result.delivered) {
+        console.log(
+            `${productLabel} license delivered to ${redactEmail(customerEmail)} (tx: ${txId}, attempts: ${result.attempts})`,
+        );
+    } else {
+        console.warn(
+            `${productLabel} license DEAD-LETTERED for ${redactEmail(customerEmail)} (tx: ${txId}). Manual replay required from KV: dead_letter:${txId}.`,
+        );
+    }
 }
