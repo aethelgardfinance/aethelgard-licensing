@@ -29,6 +29,7 @@ import { generateKey, randomCustomerId, annualExpiry, lifetimeExpiry, hashKey } 
 import type { Tier } from '../lib/keygen.js';
 import type { KeyRecord } from '../lib/keyrecord.js';
 import { sendLicenseEmail, sendAdvisorBundleEmail, sendPdfStudioLicenseEmail, sendSentinelLicenseEmail } from '../lib/email.js';
+import { redactEmail } from '../lib/log-redact.js';
 import {
     generatePdfStudioKey,
     randomCustomerId as randomCustomerIdPdfStudio,
@@ -313,7 +314,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     licenseKey: record.key,
                     expiryDate: new Date(record.expires_at),
                 });
-                console.log(`Re-delivered existing PDF Studio key to ${record.customer_email} (tx: ${tx.id})`);
+                console.log(`Re-delivered existing PDF Studio key to ${redactEmail(record.customer_email)} (tx: ${tx.id})`);
                 return res.status(200).json({ success: true, idempotent: true });
             }
         }
@@ -333,7 +334,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     licenseKey: record.key,
                     expiryDate: new Date(record.expires_at),
                 });
-                console.log(`Re-delivered existing Sentinel key to ${record.customer_email} (tx: ${tx.id})`);
+                console.log(`Re-delivered existing Sentinel key to ${redactEmail(record.customer_email)} (tx: ${tx.id})`);
                 return res.status(200).json({ success: true, idempotent: true });
             }
         }
@@ -371,7 +372,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         expiryDate: r.is_lifetime ? null : new Date(r.issued_at),
                     });
                 }
-                console.log(`Re-delivered existing key(s) to ${email} (tx: ${tx.id})`);
+                console.log(`Re-delivered existing key(s) to ${redactEmail(email)} (tx: ${tx.id})`);
                 return res.status(200).json({ success: true, idempotent: true });
             }
         }
@@ -450,7 +451,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(500).json({ error: 'Email delivery failed' });
         }
 
-        console.log(`PDF Studio license delivered to ${customerEmail} (tx: ${tx.id})`);
+        console.log(`PDF Studio license delivered to ${redactEmail(customerEmail)} (tx: ${tx.id})`);
         return res.status(200).json({ success: true });
     }
 
@@ -498,7 +499,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(500).json({ error: 'Email delivery failed' });
         }
 
-        console.log(`Sentinel license delivered to ${customerEmail} (tx: ${tx.id})`);
+        console.log(`Sentinel license delivered to ${redactEmail(customerEmail)} (tx: ${tx.id})`);
         return res.status(200).json({ success: true });
     }
 
@@ -537,7 +538,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(500).json({ error: 'Email delivery failed' });
         }
 
-        console.log(`Advisor bundle delivered to ${customerEmail} (tx: ${tx.id})`);
+        console.log(`Advisor bundle delivered to ${redactEmail(customerEmail)} (tx: ${tx.id})`);
         return res.status(200).json({ success: true });
     }
 
@@ -578,6 +579,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(500).json({ error: 'Email delivery failed' });
     }
 
-    console.log(`License delivered: ${tier} to ${customerEmail} (tx: ${tx.id})`);
+    console.log(`License delivered: ${tier} to ${redactEmail(customerEmail)} (tx: ${tx.id})`);
     return res.status(200).json({ success: true });
 }

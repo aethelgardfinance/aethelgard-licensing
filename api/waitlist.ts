@@ -46,7 +46,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         background?: string;
     };
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    // Length caps before any other validation — protects the email body, the
+    // Resend payload size limit, and any future KV record from oversize
+    // input. RFC 5321 puts the email max at 254 chars; the rest are sized
+    // for what a legitimate design-partner application looks like.
+    const MAX_EMAIL = 254;
+    const MAX_NAME = 100;
+    const MAX_ROLE = 100;
+    const MAX_BACKGROUND = 5000;
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > MAX_EMAIL) {
         return res.status(400).json({ error: 'Invalid email address' });
     }
 
@@ -56,6 +65,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (type === 'design-partner' && (!name || !role || !background)) {
         return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    if (
+        (name && name.length > MAX_NAME)
+        || (role && role.length > MAX_ROLE)
+        || (background && background.length > MAX_BACKGROUND)
+    ) {
+        return res.status(400).json({ error: 'One or more fields exceed the allowed length' });
     }
 
     const resendApiKey = process.env['RESEND_API_KEY'];

@@ -58,6 +58,23 @@ export async function activateDevice(
 
     const record = withActivationDefaults(raw);
 
+    // Defence in depth: a corrupted KV record (manual edit, replication
+    // mishap, supply-chain integrity failure) should not be able to bypass
+    // or invert the device cap. The full business range is currently 1..3
+    // for paid tiers and 1..1 for advisor-bundle keys; clamp at 10 to leave
+    // headroom without admitting nonsense values like -1, Infinity, NaN, or
+    // 1e9. A loud failure here is the right behaviour: surface to support
+    // rather than silently issue an unbounded license.
+    if (
+        !Number.isInteger(record.device_limit)
+        || record.device_limit < 1
+        || record.device_limit > 10
+    ) {
+        throw new Error(
+            `Refusing activation: device_limit ${record.device_limit} on key is outside the safe range [1, 10]. Contact support.`,
+        );
+    }
+
     // Idempotent re-activation: same fingerprint on an already-registered device.
     const existingIdx = record.devices.findIndex(d => d.fingerprint === input.fingerprint);
     if (existingIdx >= 0) {

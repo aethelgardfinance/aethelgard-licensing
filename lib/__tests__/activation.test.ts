@@ -286,6 +286,49 @@ describe('activateDevice — backwards compatibility', () => {
     });
 });
 
+// ── activateDevice: corrupt device_limit guard (M-LIC-4) ─────────────────────
+
+describe('activateDevice — corrupt device_limit refused', () => {
+    test('refuses negative device_limit', async () => {
+        const kv = new MemKv();
+        kv.store.set(`key:${KEY_HASH}`, {
+            key: 'k', transaction_id: 'tx', tier: 'advanced', is_lifetime: true,
+            issued_at: '2026-01-01T00:00:00.000Z', customer_email: 'a@b.c', revoked: false,
+            device_limit: -1, devices: [],
+        });
+        await assert.rejects(
+            () => activateDevice(kv, { keyHash: KEY_HASH, fingerprint: FP_A, device_name: 'X' }, FROZEN_NOW),
+            /Refusing activation/,
+        );
+    });
+
+    test('refuses non-integer device_limit', async () => {
+        const kv = new MemKv();
+        kv.store.set(`key:${KEY_HASH}`, {
+            key: 'k', transaction_id: 'tx', tier: 'advanced', is_lifetime: true,
+            issued_at: '2026-01-01T00:00:00.000Z', customer_email: 'a@b.c', revoked: false,
+            device_limit: 2.5, devices: [],
+        });
+        await assert.rejects(
+            () => activateDevice(kv, { keyHash: KEY_HASH, fingerprint: FP_A, device_name: 'X' }, FROZEN_NOW),
+            /Refusing activation/,
+        );
+    });
+
+    test('refuses unbounded device_limit', async () => {
+        const kv = new MemKv();
+        kv.store.set(`key:${KEY_HASH}`, {
+            key: 'k', transaction_id: 'tx', tier: 'advanced', is_lifetime: true,
+            issued_at: '2026-01-01T00:00:00.000Z', customer_email: 'a@b.c', revoked: false,
+            device_limit: 1_000_000, devices: [],
+        });
+        await assert.rejects(
+            () => activateDevice(kv, { keyHash: KEY_HASH, fingerprint: FP_A, device_name: 'X' }, FROZEN_NOW),
+            /Refusing activation/,
+        );
+    });
+});
+
 // ── sanitiseDeviceName ───────────────────────────────────────────────────────
 
 describe('sanitiseDeviceName', () => {
