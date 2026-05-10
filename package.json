@@ -8,8 +8,10 @@
         "typecheck": "tsc --noEmit",
         "test:crypto": "node --test lib/__tests__/keygen.test.mjs",
         "test:crypto-pdfstudio": "node --test lib/__tests__/keygen-pdfstudio.test.mjs",
+        "test:crypto-sentinel": "node --test lib/__tests__/keygen-sentinel.test.mjs",
         "test:activation": "node --loader ts-node/esm lib/__tests__/activation.test.ts",
-        "test": "npm run test:crypto && npm run test:crypto-pdfstudio && npm run test:activation",
+        "test:verify-license": "node --experimental-strip-types --test lib/__tests__/verify-license.test.ts",
+        "test": "npm run test:crypto && npm run test:crypto-pdfstudio && npm run test:crypto-sentinel && npm run test:verify-license",
         "kv:export": "node scripts/kv-export.mjs"
     },
     "devDependencies": {
