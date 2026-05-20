@@ -63,14 +63,18 @@ if (args.length > 3 || (args.length === 3 && !confirmed)) {
 
 // ── Env ──────────────────────────────────────────────────────────────────────
 
-const REDIS_URL   = process.env['UPSTASH_REDIS_REST_URL'];
-const REDIS_TOKEN = process.env['UPSTASH_REDIS_REST_TOKEN'];
+// Vercel uses two naming conventions for the same Upstash KV connection
+// depending on integration vintage. Accept either, matching lib/redis.ts.
+const REDIS_URL   = process.env['UPSTASH_REDIS_REST_URL']   ?? process.env['KV_REST_API_URL'];
+const REDIS_TOKEN = process.env['UPSTASH_REDIS_REST_TOKEN'] ?? process.env['KV_REST_API_TOKEN'];
 
 if (!REDIS_URL || !REDIS_TOKEN) {
-    console.error('ERROR: UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN must be set.');
-    console.error('Grab them from Vercel dashboard > Project Settings > Environment Variables,');
-    console.error('add to .env.production locally, then:');
-    console.error('  set -a; . ./.env.production; set +a; node scripts/deactivate.mjs <KEY> [...]');
+    console.error('ERROR: Upstash KV credentials not found in environment.');
+    console.error('  Expected one of:');
+    console.error('    UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN  (older Marketplace flow)');
+    console.error('    KV_REST_API_URL        + KV_REST_API_TOKEN         (newer Storage flow)');
+    console.error('  Pull from Vercel:  npx vercel env pull .env.production --environment=production');
+    console.error('  Then:              set -a; . ./.env.production; set +a; node scripts/deactivate.mjs <KEY> [...]');
     process.exit(1);
 }
 
