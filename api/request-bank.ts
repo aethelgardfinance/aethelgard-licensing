@@ -178,11 +178,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(500).json({ error: 'Failed to send notification' });
     }
 
-    // Best-effort demand counter for prioritisation — never block the response.
+    // Best-effort demand counter + triage queue — never block the response.
+    // The queue holds the redacted submission (headers + faked sample only, per
+    // the app's local synthetic-sample generator) so a human or a triage agent
+    // can prioritise which adapters to build. Capped to bound growth.
     try {
         await kv.incr(`bank-req:${slug(bank)}`);
+        await kv.lpush('bank-requests', JSON.stringify({
+            slug: slug(bank),
+            bank,
+            country: country ?? null,
+            format,
+            email,
+            tier: tier ?? null,
+            appVersion: appVersion ?? null,
+            sample: sample ?? null,
+            notes: notes ?? null,
+            ts: Date.now(),
+        }));
+        await kv.ltrim('bank-requests', 0, 499);
     } catch (err) {
-        console.warn('Demand-counter increment failed:', err);
+        console.warn('Bank-request persist failed:', err);
     }
 
     return res.status(200).json({ ok: true });
