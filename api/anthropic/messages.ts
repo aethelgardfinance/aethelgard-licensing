@@ -45,6 +45,27 @@ const RATE_PER_DAY = 200;
 const SEC_HOUR = 60 * 60;
 const SEC_DAY  = 60 * 60 * 24;
 
+// ── Global daily ceiling ────────────────────────────────────────────────────
+// The per-licence limits above bound ONE licence. They do not bound the bill:
+// total spend scales linearly with licences issued, and every call is charged
+// to a single Anthropic account. A leaked key, a bulk re-issuance, or simply
+// more customers than expected all show up as cost with nothing to stop them.
+//
+// This is a ceiling on the whole proxy, across all licences, per UTC day.
+// Sizing (haiku-4.5, max_tokens capped at 1024): a call costs roughly
+// $0.005-0.01, so 1,000 calls/day is on the order of $5-10/day worst case.
+// Tune via ANTHROPIC_PROXY_GLOBAL_DAILY_CAP without a redeploy.
+//
+// NOTE: this is defence in depth, not the backstop. It lives in the same
+// process as the thing it limits and depends on KV being up (see the
+// fail-open note below). The real backstop is a spend limit configured on the
+// Anthropic account itself, which cannot fail open. Set both.
+const GLOBAL_PER_DAY = (() => {
+    const raw = process.env['ANTHROPIC_PROXY_GLOBAL_DAILY_CAP'];
+    const n = raw ? Number.parseInt(raw, 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : 1000;
+})();
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
         res.setHeader('Allow', 'POST');
@@ -85,11 +106,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ── Rate limit ──────────────────────────────────────────────────────
     const hourKey = `anth:hour:${license.keyHash}`;
     const dayKey  = `anth:day:${license.keyHash}`;
+    const globalKey = `anth:global:day:${utcDay()}`;
     try {
-        const [hourCount, dayCount] = await Promise.all([
+        const [hourCount, dayCount, globalCount] = await Promise.all([
             incrAndExpire(hourKey, SEC_HOUR),
             incrAndExpire(dayKey, SEC_DAY),
+            incrAndExpire(globalKey, SEC_DAY),
         ]);
+        if (globalCount > GLOBAL_PER_DAY) {
+            // Deliberately loud: crossing this means either unexpected demand
+            // or something wrong. It should never be hit in normal operation,
+            // so a hit is worth investigating rather than just raising the cap.
+            console.error(
+                `[anthropic-proxy] GLOBAL DAILY CAP HIT — ${globalCount}/${GLOBAL_PER_DAY} calls on ${utcDay()}. ` +
+                `All managed-mode AI is now refused until UTC midnight. Check for a leaked licence or raise ` +
+                `ANTHROPIC_PROXY_GLOBAL_DAILY_CAP if this is genuine demand.`,
+            );
+            return res.status(429).json({
+                type: 'error',
+                error: {
+                    type: 'rate_limit_error',
+                    message:
+                        'The managed AI service has reached its daily capacity. ' +
+                        'This is a limit on the service, not on your licence. It resets at UTC midnight — ' +
+                        'or switch Settings to your own Anthropic key to continue now.',
+                },
+            });
+        }
         if (hourCount > RATE_PER_HOUR) {
             return res.status(429).json({
                 type: 'error',
@@ -111,7 +154,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } catch (err) {
         // KV outage — fail open. Better to serve legitimate users than block them
         // on a Redis blip. The rate limit reasserts as soon as KV is back.
-        console.warn('Rate-limit KV unavailable, failing open:', err);
+        //
+        // Be clear-eyed about what this costs: while KV is down there is NO
+        // rate limit and NO global cap, so spend is unbounded for the duration
+        // of the outage. That is an accepted trade (an Upstash outage taking
+        // out a paid-for feature is the worse failure at this scale), but it is
+        // exactly why an account-level spend limit at Anthropic is required as
+        // well — it is the only control here that cannot fail open.
+        console.error('[anthropic-proxy] KV UNAVAILABLE — rate limit AND global cap are OFF, spend is uncapped until it recovers:', err);
     }
 
     // ── Body validation ─────────────────────────────────────────────────
@@ -165,12 +215,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             body: JSON.stringify(sanitised),
         });
 
-        // Privacy-bounded log line: keyHash + model + status only.
-        console.log(`[anthropic-proxy] kh=${license.keyHash.slice(0, 16)} model=${model} status=${resp.status}`);
-
         // Mirror Anthropic's status + body verbatim so the client sees
         // exactly the same error shapes it would on a direct call.
         const text = await resp.text();
+
+        // Accumulate real token usage for the day. Calls are a poor proxy for
+        // cost — a 200-token question and a 4,000-token ledger summary bill
+        // very differently — so without this there is no honest answer to
+        // "what is this costing?", which is the question a spend alert exists
+        // to answer. Tokens only: no content, no identifiers.
+        const usage = extractUsage(text);
+        let dayTokens: { input: number; output: number } | null = null;
+        if (usage) {
+            dayTokens = await recordUsage(usage).catch((err) => {
+                // Accounting must never break the response the user is waiting for.
+                console.warn('[anthropic-proxy] usage accounting failed (request itself was fine):', err);
+                return null;
+            });
+        }
+
+        // Privacy-bounded log line: keyHash + model + status, plus this call's
+        // tokens and the running day total. Grep `day_in=` to see the trend.
+        const usagePart = usage ? ` in=${usage.input} out=${usage.output}` : '';
+        const dayPart = dayTokens ? ` day_in=${dayTokens.input} day_out=${dayTokens.output}` : '';
+        console.log(`[anthropic-proxy] kh=${license.keyHash.slice(0, 16)} model=${model} status=${resp.status}${usagePart}${dayPart}`);
+
         res.status(resp.status);
         res.setHeader('content-type', resp.headers.get('content-type') ?? 'application/json');
         return res.send(text);
@@ -187,6 +256,58 @@ async function incrAndExpire(key: string, ttlSec: number): Promise<number> {
     // INCR is atomic; EXPIRE sets TTL on first hit (no-op if already set).
     const next = await kv.incr(key);
     if (next === 1) {
+        await kv.expire(key, ttlSec);
+    }
+    return next;
+}
+
+/** Current UTC date as `YYYY-MM-DD` — the bucket key for per-day counters. */
+function utcDay(): string {
+    return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Pull `usage.input_tokens` / `usage.output_tokens` out of an Anthropic
+ * response body. Returns null for error responses, non-JSON, or any shape we
+ * do not recognise — accounting is best-effort and must never throw into the
+ * request path.
+ */
+function extractUsage(body: string): { input: number; output: number } | null {
+    try {
+        const parsed = JSON.parse(body) as Record<string, unknown>;
+        const usage = parsed['usage'];
+        if (!usage || typeof usage !== 'object') return null;
+        const u = usage as Record<string, unknown>;
+        const input = typeof u['input_tokens'] === 'number' ? u['input_tokens'] : 0;
+        const output = typeof u['output_tokens'] === 'number' ? u['output_tokens'] : 0;
+        if (input === 0 && output === 0) return null;
+        return { input, output };
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Add this call's tokens to the running UTC-day totals and return the new
+ * totals. Keys expire after a day, so this is a rolling window with no
+ * retention and nothing to clean up.
+ */
+async function recordUsage(usage: { input: number; output: number }): Promise<{ input: number; output: number }> {
+    const day = utcDay();
+    const inKey = `anth:tokens:in:${day}`;
+    const outKey = `anth:tokens:out:${day}`;
+    const [input, output] = await Promise.all([
+        incrByAndExpire(inKey, usage.input, SEC_DAY),
+        incrByAndExpire(outKey, usage.output, SEC_DAY),
+    ]);
+    return { input, output };
+}
+
+async function incrByAndExpire(key: string, by: number, ttlSec: number): Promise<number> {
+    const next = await kv.incrby(key, by);
+    // Set the TTL when the counter is first created. `next === by` is the
+    // first-write signal (INCRBY from absent starts at 0).
+    if (next === by) {
         await kv.expire(key, ttlSec);
     }
     return next;
