@@ -1,7 +1,12 @@
 /**
  * Vercel Serverless Function — licence key verification.
  *
- * Endpoint: GET /api/verify?key=AETHG-...&fingerprint=<hex>
+ * Endpoint (preferred): POST /api/verify  { key: "AETHG-...", fingerprint?: <hex> }
+ * Endpoint (legacy):    GET  /api/verify?key=AETHG-...&fingerprint=<hex>
+ *
+ * POST is preferred so the licence key travels in the request body rather than
+ * the URL (query strings land in server/proxy/access logs). GET is retained for
+ * already-installed clients that predate the POST switch.
  *
  * Returns (registered, not revoked):
  *   { valid: true, customer_email: "..." }
@@ -25,16 +30,25 @@ import { hashKey } from '../lib/keygen.js';
 import { withActivationDefaults, type KeyRecord } from './paddle-webhook.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (req.method !== 'GET') {
+    // Preferred path: POST with the key in the JSON body (keeps it out of URLs
+    // and access logs). Legacy path: GET with the key in the query string, for
+    // clients installed before the POST switch.
+    let key: unknown;
+    let fingerprintRaw: unknown;
+    if (req.method === 'POST') {
+        key = req.body?.key;
+        fingerprintRaw = req.body?.fingerprint;
+    } else if (req.method === 'GET') {
+        key = req.query['key'];
+        fingerprintRaw = req.query['fingerprint'];
+    } else {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const key = req.query['key'];
     if (!key || typeof key !== 'string' || key.trim() === '') {
         return res.status(400).json({ valid: false, reason: 'missing_key' });
     }
 
-    const fingerprintRaw = req.query['fingerprint'];
     const fingerprint = typeof fingerprintRaw === 'string' && /^[0-9a-f]{64}$/.test(fingerprintRaw)
         ? fingerprintRaw
         : undefined;
