@@ -5,6 +5,8 @@
  * Body (design-partner):       { email, name, role, background, type: "design-partner" }
  * Body (mac-waitlist):          { email, type: "mac-waitlist" }
  * Body (pdf-studio-waitlist):   { email, type: "pdf-studio-waitlist" }
+ * Body (ledger-pilot):          { email, name, role, background, type: "ledger-pilot" }
+ *   — Aethelgard Ledger (MCP server) pilot requests from aethelgard.finance/ledger.
  *
  * Sends a notification to contact@aethelgard.finance via Resend.
  */
@@ -110,11 +112,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Invalid email address' });
     }
 
-    if (type !== 'design-partner' && type !== 'mac-waitlist' && type !== 'pdf-studio-waitlist') {
+    if (type !== 'design-partner' && type !== 'mac-waitlist' && type !== 'pdf-studio-waitlist' && type !== 'ledger-pilot') {
         return res.status(400).json({ error: 'Invalid type' });
     }
 
-    if (type === 'design-partner' && (!name || !role || !background)) {
+    // Both application-style forms need the full set of fields.
+    const isApplication = type === 'design-partner' || type === 'ledger-pilot';
+
+    if (isApplication && (!name || !role || !background)) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -134,16 +139,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const label =
         type === 'design-partner' ? 'Design Partner Application'
+        : type === 'ledger-pilot' ? 'Ledger Pilot Request'
         : type === 'pdf-studio-waitlist' ? 'PDF Studio Waitlist'
         : 'Mac Waitlist';
     const subject = `[Aethelgard] New ${label}: ${name ? escapeHtml(name) + ' — ' : ''}${email}`;
-    const html = type === 'design-partner'
-        ? `<h2>New Design Partner Application</h2>
+    const html = isApplication
+        ? `<h2>New ${label}</h2>
 <table cellpadding="6" style="border-collapse:collapse">
   <tr><td><strong>Name</strong></td><td>${escapeHtml(name!)}</td></tr>
   <tr><td><strong>Email</strong></td><td>${escapeHtml(email)}</td></tr>
-  <tr><td><strong>Role</strong></td><td>${escapeHtml(role!)}</td></tr>
-  <tr><td><strong>Background</strong></td><td style="white-space:pre-wrap">${escapeHtml(background!)}</td></tr>
+  <tr><td><strong>${type === 'ledger-pilot' ? 'Company and role' : 'Role'}</strong></td><td>${escapeHtml(role!)}</td></tr>
+  <tr><td><strong>${type === 'ledger-pilot' ? 'What their agents will do' : 'Background'}</strong></td><td style="white-space:pre-wrap">${escapeHtml(background!)}</td></tr>
 </table>`
         : `<p><strong>${label}</strong></p><p>Email: ${escapeHtml(email)}</p>`;
 
